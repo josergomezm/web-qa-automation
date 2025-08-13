@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "stagehand": {
+      "command": "uvx",
+      "args": [
+        "@browserbasehq/stagehand-mcp"
+      ],
+      "env": {
+        "OPENAI_API_KEY": "your-openai-api-key-here",
+        "ANTHROPIC_API_KEY": "your-anthropic-api-key-here",
+        "GOOGLE_API_KEY": "your-google-api-key-here",
+        "FASTMCP_LOG_LEVEL": "ERROR"
+      },
+      "disabled": false,
+      "autoApprove": []
+    }
+  }
+}
