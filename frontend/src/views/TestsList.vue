@@ -74,7 +74,7 @@
               <div class="flex-1">
                 <div class="flex items-center space-x-2 mb-2">
                   <h3 class="text-lg font-medium text-gray-900">
-                    Test #{{ test.id.slice(-8) }}
+                    {{ test.name || `Test #${test.id.slice(-8)}` }}
                   </h3>
                   <span
                     class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">

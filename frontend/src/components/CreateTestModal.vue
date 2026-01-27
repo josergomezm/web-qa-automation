@@ -22,6 +22,20 @@
           </div>
           
           <form @submit.prevent="handleSubmit" class="space-y-6">
+            <!-- Test Name (Optional) -->
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700">
+                Test Name (Optional)
+              </label>
+              <input
+                id="name"
+                v-model="form.name"
+                type="text"
+                class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                placeholder="My Custom Test Name"
+              />
+            </div>
+
             <!-- Test Description -->
             <div>
               <label for="description" class="block text-sm font-medium text-gray-700">
@@ -123,7 +137,7 @@
                     v-model="selectedPrerequisites"
                     class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                   />
-                  <span class="text-sm text-gray-700">{{ test.description }}</span>
+                  <span class="text-sm text-gray-700">{{ test.name ? `${test.name} - ` : '' }}{{ test.description }}</span>
                   <span class="text-xs text-gray-500">({{ test.tags?.join(', ') || 'No tags' }})</span>
                 </label>
               </div>
@@ -176,6 +190,20 @@
                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                   />
                   <p class="text-xs text-gray-500 mt-1">Default wait time between each step</p>
+                </div>
+                <div>
+                  <label for="maxRetries" class="block text-sm font-medium text-gray-700">
+                    Max Retries
+                  </label>
+                  <input
+                    id="maxRetries"
+                    v-model.number="form.maxRetries"
+                    type="number"
+                    min="0"
+                    max="5"
+                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  <p class="text-xs text-gray-500 mt-1">Retry attempts with AI refinement</p>
                 </div>
                 <div>
                   <label class="flex items-center space-x-2 mt-6">
@@ -275,6 +303,7 @@ const testStore = useTestStore()
 const configStore = useConfigStore()
 
 const form = ref({
+  name: '',
   baseUrl: '',
   description: '',
   credentials: {
@@ -283,6 +312,7 @@ const form = ref({
   },
   isReusable: false,
   globalWaitTime: 1000,
+  maxRetries: 0,
   waitForElements: true
 })
 
@@ -340,6 +370,7 @@ const closeModal = () => {
 
 const resetForm = () => {
   form.value = {
+    name: '',
     baseUrl: '',
     description: '',
     credentials: {
@@ -348,6 +379,7 @@ const resetForm = () => {
     },
     isReusable: false,
     globalWaitTime: 1000,
+    maxRetries: 0,
     waitForElements: true
   }
   formInputs.value = []
@@ -393,6 +425,7 @@ const handleSubmit = async () => {
       .filter(tag => tag.length > 0)
 
     const testData = {
+      name: form.value.name || undefined,
       baseUrl: form.value.baseUrl,
       description: form.value.description,
       credentials: form.value.credentials.username ? form.value.credentials : undefined,
@@ -402,6 +435,7 @@ const handleSubmit = async () => {
       isReusable: form.value.isReusable,
       tags: tags.length > 0 ? tags : undefined,
       globalWaitTime: form.value.globalWaitTime || undefined,
+      maxRetries: form.value.maxRetries || 0,
       waitForElements: form.value.waitForElements,
       aiModel: configStore.aiConfig.model
     }

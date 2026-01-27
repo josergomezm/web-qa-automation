@@ -32,6 +32,12 @@
                         {{ formatDate(result.executedAt) }}
                     </div>
                 </div>
+                
+                <!-- Detailed Loading Status -->
+                <div v-if="result.status === 'running' && result.currentAction" class="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-center">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+                    <span class="text-blue-800 font-medium">{{ result.currentAction }}</span>
+                </div>
 
                 <!-- Cached Steps Indicator -->
                 <div v-if="result.usedCachedSteps" class="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
@@ -67,6 +73,12 @@
                     <div class="text-center">
                         <div class="text-2xl font-bold text-orange-600">${{ result.cost.toFixed(6) }}</div>
                         <div class="text-sm text-gray-500">Cost</div>
+                    </div>
+                    <div class="text-center" v-if="result.retryCount !== undefined">
+                        <div class="text-2xl font-bold" :class="result.retryCount > 0 ? 'text-yellow-600' : 'text-gray-600'">
+                            {{ result.retryCount }}
+                        </div>
+                        <div class="text-sm text-gray-500">Retries</div>
                     </div>
                 </div>
             </div>
@@ -451,6 +463,7 @@ const showConsoleMessages = ref(false)
 const showNetworkCalls = ref(false)
 const expandedScreenshots = ref(new Set<number>())
 const expandedPrerequisiteScreenshots = ref(new Set<string>())
+const pollInterval = ref<number | null>(null)
 
 // Fullscreen modal state
 const showFullscreenModal = ref(false)
@@ -569,32 +582,64 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 const loadResult = async () => {
     try {
-        loading.value = true
+        // Only show full loading state on initial load
+        if (!result.value) {
+            loading.value = true
+        }
+        
         const resultId = route.params.id as string
 
         // Get the result from the store or fetch it
-        const foundResult = testStore.results.find(r => r.id === resultId)
-        if (foundResult) {
-            result.value = foundResult
-        } else {
+        // Should always fetch fresh data when polling
+        // const foundResult = testStore.results.find(r => r.id === resultId)
+        // if (foundResult && !result.value) {
+        //     result.value = foundResult
+        // } else {
             // Fetch from API
             result.value = await testStore.getResult(resultId)
-        }
+        // }
     } catch (err: any) {
-        error.value = err.message || 'Failed to load result'
+        // Don't overwrite error on polling failures unless we have no result
+        if (!result.value) {
+            error.value = err.message || 'Failed to load result'
+        }
+        console.error('Failed to load result:', err)
     } finally {
         loading.value = false
     }
 }
 
+const startPolling = () => {
+    stopPolling()
+    pollInterval.value = window.setInterval(async () => {
+        if (result.value?.status === 'running') {
+            await loadResult()
+        } else {
+            stopPolling()
+        }
+    }, 2000)
+}
+
+const stopPolling = () => {
+    if (pollInterval.value) {
+        clearInterval(pollInterval.value)
+        pollInterval.value = null
+    }
+}
+
 onMounted(() => {
-    loadResult()
+    loadResult().then(() => {
+        if (result.value?.status === 'running') {
+            startPolling()
+        }
+    })
     // Add event listener for ESC key
     document.addEventListener('keydown', handleKeydown)
 })
 
 // Cleanup event listener
 onUnmounted(() => {
+    stopPolling()
     document.removeEventListener('keydown', handleKeydown)
     document.body.style.overflow = '' // Ensure scrolling is restored
 })

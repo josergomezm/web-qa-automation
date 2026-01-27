@@ -91,7 +91,11 @@ export class AutomationService {
     logger.success('Playwright automation initialized');
   }
 
-  async executeSteps(steps: any[], waitConfig?: { globalWaitTime?: number, waitForElements?: boolean }): Promise<{
+  async executeSteps(
+    steps: any[],
+    waitConfig?: { globalWaitTime?: number, waitForElements?: boolean },
+    onStepUpdate?: (status: string) => Promise<void>
+  ): Promise<{
     steps: TestStep[],
     performance: PerformanceMetrics,
     screenshots: string[],
@@ -110,7 +114,13 @@ export class AutomationService {
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       const stepTarget = step.target || step.selector || step.description || 'unknown';
-      logger.step(i + 1, steps.length, `${step.action.toUpperCase()}: ${stepTarget}`);
+      const stepDescription = `${step.action.toUpperCase()}: ${stepTarget}`;
+      logger.step(i + 1, steps.length, stepDescription);
+
+      if (onStepUpdate) {
+        await onStepUpdate(`Executing step ${i + 1}/${steps.length}: ${stepDescription}`);
+      }
+
       let success = false;
       let error: string | undefined;
 
@@ -118,7 +128,14 @@ export class AutomationService {
       if (step.waitBefore || waitConfig?.globalWaitTime) {
         const waitTime = step.waitBefore || waitConfig?.globalWaitTime || 0;
         logger.debug(`Waiting ${waitTime}ms before step...`);
-        await this.page.waitForTimeout(waitTime);
+        if (onStepUpdate) await onStepUpdate(`Waiting ${waitTime}ms before step...`);
+
+        // Use smart wait if the wait time is substantial (>1000ms), otherwise just sleep
+        if (waitTime > 1000) {
+          await this.smartWait(waitTime);
+        } else {
+          await this.page.waitForTimeout(waitTime);
+        }
       }
 
       try {
@@ -128,7 +145,9 @@ export class AutomationService {
             if (!url) {
               throw new Error('Navigate step requires a target URL');
             }
-            await this.page.goto(url, { waitUntil: 'networkidle' });
+            if (onStepUpdate) await onStepUpdate(`Navigating to ${url}...`);
+            await this.page.goto(url, { waitUntil: 'domcontentloaded' });
+            await this.smartWait(2000); // Wait for potential redirects or dynamic content
 
             // Handle any permission popups that might appear after navigation
             await this.handlePermissionPopups();
@@ -150,6 +169,7 @@ export class AutomationService {
             const fillTarget = step.target || step.selector;
             const fillValue = step.value;
             if (fillTarget && fillValue) {
+              if (onStepUpdate) await onStepUpdate(`Filling input ${fillTarget}...`);
               await this.smartFill(fillTarget, fillValue, waitConfig?.waitForElements);
               success = true;
             } else {
@@ -162,6 +182,7 @@ export class AutomationService {
             if (!clickTarget) {
               throw new Error('Click step requires a target/selector');
             }
+            if (onStepUpdate) await onStepUpdate(`Clicking ${clickTarget}...`);
             await this.smartClick(clickTarget, waitConfig?.waitForElements);
             this.clickCount++;
 
@@ -403,47 +424,62 @@ export class AutomationService {
     // Try multiple selectors if comma-separated
     const selectors = target.split(',').map((s: string) => s.trim());
 
-    for (const selector of selectors) {
+    // optimization: Race all selectors to find the first valid one
+    // We create a promise for each selector that resolves only if the selector is valid
+    // and rejects if it's not found or invalid
+    const selectorChecks = selectors.map(async (selector) => {
       try {
-        console.log(`Trying to fill selector: ${selector}`);
-
         // Special handling for Ionic elements
         if (selector.includes('ion-input')) {
-          if (await this.tryIonicFill(selector, value)) {
-            return;
-          }
+          // For ionic, we just try to find it. If tryIonicFill returns true, it filled it.
+          // BUT - tryIonicFill actually PERFORMS the action. We can't race actions easily.
+          // So for Ionic, we'll just check existence here, and if it exists, we return it as the "winner".
+          // The actual fill will happen after we find the winner.
+          // Wait, tryIonicFill is specific. Let's simplify:
+          // We will check for visibility of the selector.
+          const element = await this.page!.waitForSelector(selector, {
+            state: 'visible',
+            timeout: waitForElements ? 10000 : 2000
+          });
+          if (element) return selector;
         }
 
-        // Wait for element to be present and visible if waitForElements is enabled
-        if (waitForElements) {
-          await this.page.waitForSelector(selector, { state: 'visible', timeout: 10000 });
-        } else {
-          await this.page.waitForSelector(selector, { timeout: 5000 });
+        // Standard selector check
+        await this.page!.waitForSelector(selector, {
+          state: 'visible',
+          timeout: waitForElements ? 10000 : 2000
+        });
+
+        // Check if enabled
+        const element = await this.page!.$(selector);
+        if (element && await element.isEnabled()) {
+          return selector;
         }
-
-        // Check if element is visible and enabled
-        const element = await this.page.$(selector);
-        if (element) {
-          const isVisible = await element.isVisible();
-          const isEnabled = await element.isEnabled();
-
-          console.log(`Element ${selector}: visible=${isVisible}, enabled=${isEnabled}`);
-
-          if (isVisible && isEnabled) {
-            // Clear field first, then fill
-            await this.page.fill(selector, '');
-            await this.page.fill(selector, value);
-            console.log(`Successfully filled ${selector} with: ${value}`);
-            return;
-          }
-        }
-      } catch (error) {
-        console.log(`Fill selector failed: ${selector}, trying next...`);
-        continue;
+        throw new Error('Not enabled');
+      } catch (e) {
+        throw new Error(`Selector ${selector} failed`);
       }
-    }
+    });
 
-    throw new Error(`Could not fill any of these selectors: ${target}`);
+    try {
+      // Wait for the FIRST valid selector
+      console.log(`Racing ${selectors.length} selectors for fill...`);
+      const winningSelector = await Promise.any(selectorChecks);
+      console.log(`Race won by: ${winningSelector}`);
+
+      // Now perform the action on the winner
+      if (winningSelector.includes('ion-input')) {
+        if (await this.tryIonicFill(winningSelector, value)) return;
+      }
+
+      await this.page.fill(winningSelector, '');
+      await this.page.fill(winningSelector, value);
+      console.log(`Successfully filled ${winningSelector} with: ${value}`);
+
+    } catch (aggregateError) {
+      console.log('All selectors failed validation in parallel.');
+      throw new Error(`Could not fill any of these selectors: ${target}`);
+    }
   }
 
   private async tryIonicFill(selector: string, value: string): Promise<boolean> {
@@ -493,49 +529,53 @@ export class AutomationService {
     // Try multiple selectors if comma-separated
     const selectors = target.split(',').map((s: string) => s.trim());
 
-    for (const selector of selectors) {
+    // optimization: Race all selectors
+    const selectorChecks = selectors.map(async (selector) => {
       try {
-        console.log(`Trying to click selector: ${selector}`);
-
         // Special handling for Ionic elements
         if (selector.includes('ion-button')) {
-          if (await this.tryIonicClick(selector)) {
-            return;
-          }
+          const element = await this.page!.waitForSelector(selector, {
+            state: 'visible',
+            timeout: waitForElements ? 10000 : 2000
+          });
+          if (element) return selector;
         }
 
-        // Wait for element to be present and visible if waitForElements is enabled
-        if (waitForElements) {
-          await this.page.waitForSelector(selector, { state: 'visible', timeout: 10000 });
-        } else {
-          await this.page.waitForSelector(selector, { timeout: 5000 });
+        await this.page!.waitForSelector(selector, {
+          state: 'visible',
+          timeout: waitForElements ? 10000 : 2000
+        });
+
+        const element = await this.page!.$(selector);
+        if (element && await element.isEnabled()) {
+          return selector;
         }
-
-        // Check if element is visible and enabled
-        const element = await this.page.$(selector);
-        if (element) {
-          const isVisible = await element.isVisible();
-          const isEnabled = await element.isEnabled();
-
-          console.log(`Element ${selector}: visible=${isVisible}, enabled=${isEnabled}`);
-
-          if (isVisible && isEnabled) {
-            // Scroll element into view first
-            await element.scrollIntoViewIfNeeded();
-
-            // Try click with force if needed
-            await this.page.click(selector, { force: true });
-            console.log(`Successfully clicked: ${selector}`);
-            return;
-          }
-        }
-      } catch (error) {
-        console.log(`Click selector failed: ${selector}, trying next...`);
-        continue;
+        throw new Error('Not enabled');
+      } catch (e) {
+        throw new Error(`Selector ${selector} failed`);
       }
-    }
+    });
 
-    throw new Error(`Could not click any of these selectors: ${target}`);
+    try {
+      console.log(`Racing ${selectors.length} selectors for click...`);
+      const winningSelector = await Promise.any(selectorChecks);
+      console.log(`Race won by: ${winningSelector}`);
+
+      if (winningSelector.includes('ion-button')) {
+        if (await this.tryIonicClick(winningSelector)) return;
+      }
+
+      const element = await this.page.$(winningSelector);
+      if (element) {
+        await element.scrollIntoViewIfNeeded();
+        await this.page.click(winningSelector, { force: true });
+        console.log(`Successfully clicked: ${winningSelector}`);
+      }
+
+    } catch (aggregateError) {
+      console.log('All selectors failed validation in parallel.');
+      throw new Error(`Could not click any of these selectors: ${target}`);
+    }
   }
 
   private async handlePermissionPopups(): Promise<void> {
@@ -616,9 +656,38 @@ export class AutomationService {
     }
   }
 
+  async getPageContent(): Promise<string> {
+    if (!this.page) return '';
+    try {
+      return await this.page.content();
+    } catch (error) {
+      return '';
+    }
+  }
+
   async cleanup() {
     if (this.browser) {
       await this.browser.close();
+    }
+  }
+
+  private async smartWait(minWaitTime: number = 0): Promise<void> {
+    if (!this.page) return;
+
+    // Minimum wait
+    if (minWaitTime > 0) {
+      await this.page.waitForTimeout(minWaitTime);
+    }
+
+    // Smart wait for network idle and load state
+    try {
+      await Promise.race([
+        this.page.waitForLoadState('networkidle', { timeout: 5000 }),
+        this.page.waitForLoadState('domcontentloaded', { timeout: 5000 }),
+        this.page.waitForLoadState('load', { timeout: 5000 })
+      ]).catch(() => { }); // Ignore timeouts specifically for these wait conditions
+    } catch (e) {
+      // Ignore general errors during wait
     }
   }
 }

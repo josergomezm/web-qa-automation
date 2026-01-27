@@ -2,6 +2,7 @@
 
 export interface TestRequest {
   id: string;
+  name?: string;
   baseUrl: string;
   description: string;
   credentials?: {
@@ -22,6 +23,7 @@ export interface TestRequest {
   tags?: string[]; // Tags for categorizing tests (e.g., 'login', 'setup', 'navigation')
   globalWaitTime?: number; // Default wait time between steps (in milliseconds)
   waitForElements?: boolean; // Whether to wait for elements to be visible/clickable
+  maxRetries?: number; // Maximum number of retries for failed tests
 }
 
 export interface TestStep {
@@ -87,6 +89,8 @@ export interface TestResult {
   consoleMessages?: ConsoleMessage[];
   networkCalls?: NetworkCall[];
   usedCachedSteps?: boolean; // Indicates if cached steps were used instead of AI generation
+  retryCount?: number; // Number of retries attempted
+  currentAction?: string; // Current action being executed (e.g. "Waiting for network...", "Clicking element...")
 }
 
 export interface AIConfig {

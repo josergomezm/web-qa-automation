@@ -66,6 +66,35 @@ export class AIService {
     }
   }
 
+  async generateRefinedSteps(
+    baseUrl: string,
+    description: string,
+    failedStep: any,
+    error: string,
+    executedSteps: any[],
+    pageSource?: string,
+    credentials?: any,
+    formInputs?: any
+  ): Promise<string[]> {
+    const prompt = this.buildRefinementPrompt(baseUrl, description, failedStep, error, executedSteps, pageSource, credentials, formInputs);
+
+    try {
+      switch (this.config.provider) {
+        case 'openai':
+          return await this.generateWithOpenAI(prompt);
+        case 'anthropic':
+          return await this.generateWithAnthropic(prompt);
+        case 'google':
+          return await this.generateWithGoogle(prompt);
+        default:
+          throw new Error(`Unsupported AI provider: ${this.config.provider}`);
+      }
+    } catch (error) {
+      console.error('AI refinement generation failed:', error);
+      throw new Error('Failed to generate refined test steps');
+    }
+  }
+
   /**
    * Builds a detailed prompt for an LLM to generate browser automation steps.
    * @param baseUrl The base URL for the test.
@@ -128,6 +157,68 @@ export class AIService {
     }
 
     promptParts.push(QA_AUTOMATION_PROMPT_TEMPLATE);
+
+    return promptParts.join('\n\n');
+  }
+
+  private buildRefinementPrompt(
+    baseUrl: string,
+    description: string,
+    failedStep: any,
+    error: string,
+    executedSteps: any[],
+    pageSource?: string,
+    credentials?: Record<string, unknown>,
+    formInputs?: Record<string, unknown>
+  ): string {
+    const promptParts: string[] = [];
+    promptParts.push(
+      `The previous attempt to execute the test failed. Please analyze the failure and generate a NEW sequence of steps to complete the remaining part of the test.`,
+      `Base URL: ${baseUrl}`,
+      `Original Test Description: "${description}"`,
+      `Failed Step: ${JSON.stringify(failedStep)}`,
+      `Error Message: "${error}"`
+    );
+
+    if (executedSteps && executedSteps.length > 0) {
+      promptParts.push(
+        `Previously Executed Steps (Success):`,
+        JSON.stringify(executedSteps.map(s => s.action + ': ' + (s.element || s.target)), null, 2),
+        `Note: The browser is currently in the state AFTER these steps. Do NOT re-generate these steps. Start from the next logical step to proceed.`
+      );
+    }
+
+    if (pageSource) {
+      // Truncate if too long (simple heuristic)
+      const truncatedSource = pageSource.length > 20000 ? pageSource.substring(0, 20000) + '... (truncated)' : pageSource;
+      promptParts.push(
+        `Current Page HTML Snapshot (use this to find correct selectors):`,
+        '```html',
+        truncatedSource,
+        '```'
+      );
+    }
+
+    if (credentials) {
+      promptParts.push(
+        `Available credentials:`,
+        JSON.stringify(credentials, null, 2)
+      );
+    }
+
+    if (formInputs) {
+      promptParts.push(
+        `Form data to use:`,
+        JSON.stringify(formInputs, null, 2)
+      );
+    }
+
+    promptParts.push(
+      `Based on the failure and the current page state, provide a CORRECTED sequence of JSON steps to complete the goal.`,
+      `If the error was due to a wrong selector, use the provided HTML to find a better one.`,
+      `If the error was a timeout, consider adding a wait step or checking for a different condition.`,
+      QA_AUTOMATION_PROMPT_TEMPLATE
+    );
 
     return promptParts.join('\n\n');
   }

@@ -27,9 +27,23 @@
           <div v-if="test" class="space-y-6">
             <!-- Test Info (Read-only) -->
             <div class="bg-gray-50 p-4 rounded-md">
-              <h4 class="font-medium text-gray-900 mb-2">Test #{{ test.id.slice(-8) }}</h4>
+              <h4 class="font-medium text-gray-900 mb-2">{{ test.name || `Test #${test.id.slice(-8)}` }}</h4>
               <p class="text-sm text-gray-600">{{ test.description }}</p>
               <p class="text-xs text-gray-500 mt-1">{{ test.baseUrl }}</p>
+            </div>
+
+            <!-- Test Name -->
+            <div>
+              <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                Test Name (Optional)
+              </label>
+              <input
+                id="name"
+                v-model="form.name"
+                type="text"
+                class="block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                placeholder="My Custom Test Name"
+              />
             </div>
 
             <!-- Reusable Setting -->
@@ -77,6 +91,14 @@
                     step="100" placeholder="1000"
                     class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
                   <p class="text-xs text-gray-500 mt-1">Default wait time between each step</p>
+                </div>
+                <div>
+                  <label for="maxRetries" class="block text-sm font-medium text-gray-700">
+                    Max Retries
+                  </label>
+                  <input id="maxRetries" v-model.number="form.maxRetries" type="number" min="0" max="5"
+                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500" />
+                  <p class="text-xs text-gray-500 mt-1">Retry attempts with AI refinement</p>
                 </div>
                 <div>
                   <label class="flex items-center space-x-2 mt-6">
@@ -164,8 +186,10 @@ const emit = defineEmits<Emits>()
 const testStore = useTestStore()
 
 const form = ref({
+  name: '',
   isReusable: false,
   globalWaitTime: 1000,
+  maxRetries: 0,
   waitForElements: true
 })
 
@@ -194,8 +218,10 @@ const closeModal = () => {
 
 const resetForm = () => {
   if (props.test) {
+    form.value.name = props.test.name || ''
     form.value.isReusable = props.test.isReusable || false
     form.value.globalWaitTime = props.test.globalWaitTime || 1000
+    form.value.maxRetries = props.test.maxRetries || 0
     form.value.waitForElements = props.test.waitForElements !== false
     tagsText.value = props.test.tags ? props.test.tags.join(', ') : ''
   }
@@ -215,9 +241,11 @@ const handleSave = async () => {
       .filter(tag => tag.length > 0)
 
     const updateData = {
+      name: form.value.name || undefined,
       isReusable: form.value.isReusable,
       tags: tags.length > 0 ? tags : undefined,
       globalWaitTime: form.value.globalWaitTime || undefined,
+      maxRetries: form.value.maxRetries || 0,
       waitForElements: form.value.waitForElements
     }
 
