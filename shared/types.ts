@@ -26,10 +26,25 @@ export interface TestRequest {
   maxRetries?: number; // Maximum number of retries for failed tests
 }
 
+export type TestAction =
+  | 'navigate'
+  | 'click'
+  | 'fill'
+  | 'type' // Kept for backward compatibility, mapped to fill
+  | 'select'
+  | 'check'
+  | 'press'
+  | 'wait'
+  | 'verify'
+  | 'screenshot'
+  | 'inspect';
+
 export interface TestStep {
-  action: string;
-  element?: string;
+  action: TestAction;
+  target?: string; // Preferred over element
+  element?: string; // Legacy, kept for compatibility
   value?: string;
+  description?: string;
   timestamp: Date;
   screenshot?: string;
   success: boolean;

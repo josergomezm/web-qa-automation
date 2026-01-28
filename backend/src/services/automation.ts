@@ -113,8 +113,8 @@ export class AutomationService {
 
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
-      const stepTarget = step.target || step.selector || step.description || 'unknown';
-      const stepDescription = `${step.action.toUpperCase()}: ${stepTarget}`;
+      const stepTarget = step.target || step.element || step.selector || 'unknown';
+      const stepDescription = step.description || `${step.action.toUpperCase()}: ${stepTarget}`;
       logger.step(i + 1, steps.length, stepDescription);
 
       if (onStepUpdate) {
@@ -166,7 +166,7 @@ export class AutomationService {
             break;
 
           case 'fill':
-            const fillTarget = step.target || step.selector;
+            const fillTarget = step.target || step.element || step.selector;
             const fillValue = step.value;
             if (fillTarget && fillValue) {
               if (onStepUpdate) await onStepUpdate(`Filling input ${fillTarget}...`);
@@ -177,8 +177,31 @@ export class AutomationService {
             }
             break;
 
+          case 'type':
+            const typeTarget = step.target || step.element || step.selector;
+            const typeValue = step.value;
+            if (typeTarget && typeValue) {
+              if (onStepUpdate) await onStepUpdate(`Typing into ${typeTarget}...`);
+              await this.smartType(typeTarget, typeValue, waitConfig?.waitForElements);
+              success = true;
+            } else {
+              throw new Error('Type step requires both target/selector and value');
+            }
+            break;
+
+          case 'press':
+            const pressKey = step.value;
+            if (pressKey) {
+              if (onStepUpdate) await onStepUpdate(`Pressing key ${pressKey}...`);
+              await this.page.keyboard.press(pressKey);
+              success = true;
+            } else {
+              throw new Error('Press step requires a key value');
+            }
+            break;
+
           case 'click':
-            const clickTarget = step.target || step.selector;
+            const clickTarget = step.target || step.element || step.selector;
             if (!clickTarget) {
               throw new Error('Click step requires a target/selector');
             }
@@ -195,8 +218,25 @@ export class AutomationService {
             success = true;
             break;
 
+          case 'check':
+            const checkTarget = step.target || step.element || step.selector;
+            if (!checkTarget) throw new Error('Check action requires a target');
+            if (onStepUpdate) await onStepUpdate(`Checking ${checkTarget}...`);
+            await this.page.check(checkTarget);
+            success = true;
+            break;
+
+          case 'select':
+            const selectTarget = step.target || step.element || step.selector;
+            const selectValue = step.value;
+            if (!selectTarget || !selectValue) throw new Error('Select action requires target and value');
+            if (onStepUpdate) await onStepUpdate(`Selecting ${selectValue} in ${selectTarget}...`);
+            await this.page.selectOption(selectTarget, selectValue);
+            success = true;
+            break;
+
           case 'wait':
-            const waitTarget = step.target || step.selector;
+            const waitTarget = step.target || step.element || step.selector;
             if (waitTarget) {
               await this.page.waitForSelector(waitTarget, { timeout: 10000 });
               success = true;
@@ -244,10 +284,11 @@ export class AutomationService {
             break;
 
           case 'verify':
-            const element = await this.page.$(step.target);
+            const verifyTarget = step.target || step.element || step.selector;
+            const element = await this.page.$(verifyTarget);
             success = !!element;
             if (!success) {
-              error = `Element not found: ${step.target}`;
+              error = `Element not found: ${verifyTarget}`;
             }
             break;
 
@@ -422,13 +463,32 @@ export class AutomationService {
     }
 
     // Try multiple selectors if comma-separated
-    const selectors = target.split(',').map((s: string) => s.trim());
+    // BUT if the target looks like a Playwright chain (starts with locator/getBy), treat it as a single selector
+    // to avoid splitting on commas inside function arguments (e.g. { name: '...' })
+    let selectors: string[];
+    if (target.trim().startsWith('locator(') || target.trim().startsWith('getBy')) {
+      selectors = [target.trim()];
+    } else {
+      selectors = target.split(',').map((s: string) => s.trim());
+    }
 
     // optimization: Race all selectors to find the first valid one
     // We create a promise for each selector that resolves only if the selector is valid
     // and rejects if it's not found or invalid
     const selectorChecks = selectors.map(async (selector) => {
       try {
+        // Special handling for Playwright Locator chains
+        if (selector.startsWith('locator(') || selector.startsWith('getBy') || selector.includes('.filter(')) {
+          try {
+            const getLocator = new Function('page', `return page.${selector}`);
+            const locator = getLocator(this.page);
+            await locator.waitFor({ state: 'visible', timeout: waitForElements ? 10000 : 2000 });
+            return selector;
+          } catch (e) {
+            throw new Error(`Advanced selector failed: ${e}`);
+          }
+        }
+
         // Special handling for Ionic elements
         if (selector.includes('ion-input')) {
           // For ionic, we just try to find it. If tryIonicFill returns true, it filled it.
@@ -466,6 +526,15 @@ export class AutomationService {
       console.log(`Racing ${selectors.length} selectors for fill...`);
       const winningSelector = await Promise.any(selectorChecks);
       console.log(`Race won by: ${winningSelector}`);
+
+      // Handle advanced selectors
+      if (winningSelector.startsWith('locator(') || winningSelector.startsWith('getBy') || winningSelector.includes('.filter(')) {
+        const getLocator = new Function('page', `return page.${winningSelector}`);
+        const locator = getLocator(this.page);
+        await locator.fill(value);
+        console.log(`Successfully filled advanced locator ${winningSelector} with: ${value}`);
+        return;
+      }
 
       // Now perform the action on the winner
       if (winningSelector.includes('ion-input')) {
@@ -527,11 +596,34 @@ export class AutomationService {
     }
 
     // Try multiple selectors if comma-separated
-    const selectors = target.split(',').map((s: string) => s.trim());
+    let selectors: string[];
+    if (target.trim().startsWith('locator(') || target.trim().startsWith('getBy')) {
+      selectors = [target.trim()];
+    } else {
+      selectors = target.split(',').map((s: string) => s.trim());
+    }
 
     // optimization: Race all selectors
     const selectorChecks = selectors.map(async (selector) => {
       try {
+        // Special handling for Playwright Locator chains (from recording)
+        // e.g. locator('div').filter(...) or getByRole(...)
+        if (selector.startsWith('locator(') || selector.startsWith('getBy') || selector.includes('.filter(')) {
+          try {
+            // Determine if we should treat this as a raw Playwright locator
+            // We constructs a function to evaluate it against 'page'
+            // This allows executing codegen'd locator chains
+            const getLocator = new Function('page', `return page.${selector}`);
+            const locator = getLocator(this.page);
+
+            // For 'race' purposes, we verify it works by waiting for it
+            await locator.waitFor({ state: 'visible', timeout: waitForElements ? 10000 : 2000 });
+            return selector;
+          } catch (e) {
+            throw new Error(`Advanced selector failed: ${e}`);
+          }
+        }
+
         // Special handling for Ionic elements
         if (selector.includes('ion-button')) {
           const element = await this.page!.waitForSelector(selector, {
@@ -561,6 +653,15 @@ export class AutomationService {
       const winningSelector = await Promise.any(selectorChecks);
       console.log(`Race won by: ${winningSelector}`);
 
+      // Handle advanced selectors
+      if (winningSelector.startsWith('locator(') || winningSelector.startsWith('getBy') || winningSelector.includes('.filter(')) {
+        const getLocator = new Function('page', `return page.${winningSelector}`);
+        const locator = getLocator(this.page);
+        await locator.click();
+        console.log(`Successfully clicked advanced locator: ${winningSelector}`);
+        return;
+      }
+
       if (winningSelector.includes('ion-button')) {
         if (await this.tryIonicClick(winningSelector)) return;
       }
@@ -575,6 +676,93 @@ export class AutomationService {
     } catch (aggregateError) {
       console.log('All selectors failed validation in parallel.');
       throw new Error(`Could not click any of these selectors: ${target}`);
+    }
+  }
+
+  private async smartType(target: string, value: string, waitForElements: boolean = true): Promise<void> {
+    if (!this.page) {
+      throw new Error('Page not initialized');
+    }
+
+    let selectors: string[];
+    if (target.trim().startsWith('locator(') || target.trim().startsWith('getBy')) {
+      selectors = [target.trim()];
+    } else {
+      selectors = target.split(',').map((s: string) => s.trim());
+    }
+
+    // optimization: Race all selectors
+    const selectorChecks = selectors.map(async (selector) => {
+      try {
+        // Advanced selectors (Playwright chains)
+        if (selector.startsWith('locator(') || selector.startsWith('getBy') || selector.includes('.filter(')) {
+          try {
+            const getLocator = new Function('page', `return page.${selector}`);
+            const locator = getLocator(this.page);
+            await locator.waitFor({ state: 'visible', timeout: waitForElements ? 10000 : 2000 });
+            return selector;
+          } catch (e: any) {
+            console.error(`Advanced selector error for "${selector}":`, e.message);
+            throw e;
+          }
+        }
+
+        // Ionic support
+        if (selector.includes('ion-input')) {
+          const element = await this.page!.waitForSelector(selector, {
+            state: 'visible',
+            timeout: waitForElements ? 10000 : 2000
+          });
+          if (element) return selector;
+        }
+
+        // Standard check
+        await this.page!.waitForSelector(selector, {
+          state: 'visible',
+          timeout: waitForElements ? 10000 : 2000
+        });
+        const element = await this.page!.$(selector);
+        if (element && await element.isEnabled()) {
+          return selector;
+        }
+        throw new Error('Not enabled');
+
+      } catch (e) {
+        throw new Error(`Selector ${selector} failed`);
+      }
+    });
+
+    try {
+      console.log(`Racing ${selectors.length} selectors for type...`);
+      const winningSelector = await Promise.any(selectorChecks);
+      console.log(`Race won by: ${winningSelector}`);
+
+      if (winningSelector.startsWith('locator(') || winningSelector.startsWith('getBy') || winningSelector.includes('.filter(')) {
+        const getLocator = new Function('page', `return page.${winningSelector}`);
+        const locator = getLocator(this.page);
+        // Prefer pressSequentially for typing, fallback to type if needed
+        // pressSequentially was introduced recently. type is deprecated but safer fallback if version mismatch.
+        // Given 1.40+, pressSequentially is available.
+        if (locator.pressSequentially) {
+          await locator.pressSequentially(value, { delay: 50 });
+        } else {
+          await locator.type(value, { delay: 50 });
+        }
+        return;
+      }
+
+      // Standard
+      if (winningSelector.includes('ion-input')) {
+        // Ionic typing might need special handling
+        await this.page.type(winningSelector, value, { delay: 50 });
+        return;
+      }
+
+      await this.page.type(winningSelector, value, { delay: 50 });
+
+    } catch (error) {
+      console.log('All selectors failed validation in parallel.');
+      throw new Error(`Could not type into any of these selectors: ${target}`);
     }
   }
 

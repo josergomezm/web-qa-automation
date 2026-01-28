@@ -15,7 +15,7 @@ export const useTestStore = defineStore('tests', () => {
   const createTest = async (testData: Omit<TestRequest, 'id' | 'createdAt'>) => {
     loading.value = true
     error.value = null
-    
+
     try {
       console.log('Creating test with AI config:', {
         provider: configStore.aiConfig.provider,
@@ -27,7 +27,7 @@ export const useTestStore = defineStore('tests', () => {
         ...testData,
         aiConfig: configStore.aiConfig
       })
-      
+
       const newTest = response.data
       tests.value.push(newTest)
       return newTest
@@ -40,10 +40,27 @@ export const useTestStore = defineStore('tests', () => {
     }
   }
 
+  const recordTest = async (url: string) => {
+    // We don't set loading=true here because the modal handles its own loading state
+    error.value = null
+    try {
+      // This request will block until recording is finished
+      const response = await axios.post(`${configStore.backendUrl}/api/recording/start`, {
+        url,
+        aiConfig: configStore.aiConfig
+      })
+      return response.data // Returns { steps, analysis }
+    } catch (err: any) {
+      console.error('Recording error:', err.response?.data)
+      // We don't set global error here either, let the caller handle it
+      throw err
+    }
+  }
+
   const executeTest = async (testId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       console.log('Executing test with AI config:', {
         provider: configStore.aiConfig.provider,
@@ -69,7 +86,7 @@ export const useTestStore = defineStore('tests', () => {
   const getAllTests = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/tests`)
       tests.value = response.data
@@ -83,7 +100,7 @@ export const useTestStore = defineStore('tests', () => {
   const getTestResults = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/results`)
       results.value = response.data
@@ -97,7 +114,7 @@ export const useTestStore = defineStore('tests', () => {
   const archiveTest = async (testId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       await axios.patch(`${configStore.backendUrl}/api/tests/${testId}/archive`)
       // Update local state
@@ -117,7 +134,7 @@ export const useTestStore = defineStore('tests', () => {
   const unarchiveTest = async (testId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       await axios.patch(`${configStore.backendUrl}/api/tests/${testId}/unarchive`)
       // Update local state
@@ -137,7 +154,7 @@ export const useTestStore = defineStore('tests', () => {
   const archiveResult = async (resultId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       await axios.patch(`${configStore.backendUrl}/api/results/${resultId}/archive`)
       // Update local state
@@ -157,7 +174,7 @@ export const useTestStore = defineStore('tests', () => {
   const unarchiveResult = async (resultId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       await axios.patch(`${configStore.backendUrl}/api/results/${resultId}/unarchive`)
       // Update local state
@@ -177,7 +194,7 @@ export const useTestStore = defineStore('tests', () => {
   const getActiveTests = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/tests/active/list`)
       tests.value = response.data
@@ -191,7 +208,7 @@ export const useTestStore = defineStore('tests', () => {
   const getArchivedTests = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/tests/archived/list`)
       return response.data
@@ -206,7 +223,7 @@ export const useTestStore = defineStore('tests', () => {
   const getActiveResults = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/results/active/list`)
       results.value = response.data
@@ -220,7 +237,7 @@ export const useTestStore = defineStore('tests', () => {
   const getArchivedResults = async () => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/results/archived/list`)
       return response.data
@@ -235,7 +252,7 @@ export const useTestStore = defineStore('tests', () => {
   const getResult = async (resultId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/results/${resultId}`)
       return response.data
@@ -250,7 +267,7 @@ export const useTestStore = defineStore('tests', () => {
   const getResultsByTestId = async (testId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/results/test/${testId}`)
       return response.data
@@ -265,7 +282,7 @@ export const useTestStore = defineStore('tests', () => {
   const getTest = async (testId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.get(`${configStore.backendUrl}/api/tests/${testId}`)
       return response.data
@@ -280,16 +297,16 @@ export const useTestStore = defineStore('tests', () => {
   const updateTest = async (testId: string, updateData: Partial<TestRequest>) => {
     loading.value = true
     error.value = null
-    
+
     try {
       const response = await axios.patch(`${configStore.backendUrl}/api/tests/${testId}`, updateData)
-      
+
       // Update local state
       const testIndex = tests.value.findIndex(t => t.id === testId)
       if (testIndex >= 0) {
         tests.value[testIndex] = { ...tests.value[testIndex], ...response.data }
       }
-      
+
       return response.data
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to update test'
@@ -302,7 +319,7 @@ export const useTestStore = defineStore('tests', () => {
   const clearCachedSteps = async (testId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       await axios.delete(`${configStore.backendUrl}/api/tests/${testId}/cache`)
       // Update local state
@@ -322,7 +339,7 @@ export const useTestStore = defineStore('tests', () => {
   const deleteTest = async (testId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       await axios.delete(`${configStore.backendUrl}/api/tests/${testId}`)
       // Remove from local state
@@ -340,7 +357,7 @@ export const useTestStore = defineStore('tests', () => {
   const deleteResult = async (resultId: string) => {
     loading.value = true
     error.value = null
-    
+
     try {
       await axios.delete(`${configStore.backendUrl}/api/results/${resultId}`)
       // Remove from local state
@@ -359,6 +376,7 @@ export const useTestStore = defineStore('tests', () => {
     loading,
     error,
     createTest,
+    recordTest,
     executeTest,
     getAllTests,
     getTestResults,

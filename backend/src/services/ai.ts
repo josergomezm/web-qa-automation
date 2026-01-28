@@ -161,6 +161,108 @@ export class AIService {
     return promptParts.join('\n\n');
   }
 
+  async analyzeRecordedSteps(steps: any[], baseUrl: string): Promise<{ description: string, credentials: any, formInputs: any }> {
+    const prompt = this.buildAnalysisPrompt(steps, baseUrl);
+
+    try {
+      return await this.generateAnalysis(prompt);
+
+    } catch (error) {
+      console.error('AI analysis failed:', error);
+      // Fallback: simple description
+      return {
+        description: `Recorded test on ${baseUrl} with ${steps.length} steps.`,
+        credentials: {},
+        formInputs: {}
+      };
+    }
+  }
+
+  private buildAnalysisPrompt(steps: any[], baseUrl: string): string {
+    return `
+      You are an expert QA Automation Engineer.
+      Analyze the following recorded test steps and extract the intent and data used.
+      Provide a detailed narrative of the user's actions.
+
+      Base URL: ${baseUrl}
+      Recorded Steps:
+      ${JSON.stringify(steps, null, 2)}
+
+      Please output a JSON object with the following structure:
+      {
+        "description": "A detailed, step-by-step natural language description of what this test does. Describe the specific actions taken, such as 'User enters email and password, clicks Sign In, then selects the 'Continue' button'. Avoid generic summaries like 'User logs in'; instead, detail the flow.",
+        "credentials": {
+           "username": "extracted username if found (look for 'user', 'email' fields)",
+           "password": "extracted password if found (look for 'password' fields)"
+        },
+        "formInputs": {
+           "fieldName": "value"
+        }
+      }
+      
+      For 'formInputs', exclude the credentials. Include other inputs like search queries, address fields, etc.
+      If no credentials or inputs are found, return empty objects.
+    `;
+  }
+
+  private async generateAnalysis(prompt: string): Promise<{ description: string, credentials: any, formInputs: any }> {
+    // Re-implementing provider switch here for the object return type
+    // This duplicates some logic but avoids breaking changes to the existing methods that enforce string[]
+
+    let content: string | undefined;
+
+    if (this.config.provider === 'openai') {
+      if (!this.openai) throw new Error('OpenAI not initialized');
+      const response = await this.openai.chat.completions.create({
+        model: this.config.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.1,
+      });
+      content = response.choices[0]?.message?.content || '';
+    } else if (this.config.provider === 'anthropic') {
+      if (!this.anthropic) throw new Error('Anthropic not initialized');
+      const response = await this.anthropic.messages.create({
+        model: this.config.model,
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }],
+      });
+      if (response.content[0].type === 'text') {
+        content = response.content[0].text;
+      }
+    } else if (this.config.provider === 'google') {
+      if (!this.google) throw new Error('Google not initialized');
+      const model = this.google.getGenerativeModel({ model: this.config.model });
+      const result = await model.generateContent(prompt);
+      content = result.response.text();
+    } else {
+      throw new Error('Unsupported provider');
+    }
+
+    if (!content) throw new Error('No content received from AI');
+
+    try {
+      // Clean content from markdown code blocks if present
+      let cleanedContent = content;
+      const jsonMatch = content.match(/```json\s*(\{[\s\S]*\})\s*```/) || content.match(/```\s*(\{[\s\S]*\})\s*```/);
+
+      if (jsonMatch) {
+        cleanedContent = jsonMatch[1];
+      } else {
+        // Try to find the first '{' and last '}'
+        const firstBrace = content.indexOf('{');
+        const lastBrace = content.lastIndexOf('}');
+        if (firstBrace !== -1 && lastBrace !== -1) {
+          cleanedContent = content.substring(firstBrace, lastBrace + 1);
+        }
+      }
+
+      return JSON.parse(cleanedContent);
+    } catch (e) {
+      console.error('Failed to parse AI analysis response', e);
+      return { description: 'Failed to analyze recording.', credentials: {}, formInputs: {} };
+    }
+  }
+
   private buildRefinementPrompt(
     baseUrl: string,
     description: string,

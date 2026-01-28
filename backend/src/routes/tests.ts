@@ -12,7 +12,7 @@ const db = new DatabaseService();
 // Create a new test
 testRoutes.post('/', async (req, res) => {
   try {
-    const { baseUrl, name, description, credentials, formInputs, expectedOutcomes, aiModel, aiConfig, prerequisiteTests, isReusable, tags } = req.body;
+    const { baseUrl, name, description, credentials, formInputs, expectedOutcomes, aiModel, aiConfig, prerequisiteTests, isReusable, tags, cachedSteps } = req.body;
 
     logger.info('Creating new test');
     logger.json('AI Config', {
@@ -37,7 +37,9 @@ testRoutes.post('/', async (req, res) => {
       isReusable,
       tags,
       aiModel,
-      createdAt: new Date()
+      createdAt: new Date(),
+      cachedSteps: cachedSteps,
+      lastSuccessfulRun: cachedSteps && cachedSteps.length > 0 ? new Date() : undefined
     };
 
     await db.saveTest(testRequest);
@@ -197,12 +199,20 @@ async function executeTestAsync(test: TestRequest, aiConfig: any, resultId: stri
     let usedCachedSteps = false;
 
     // Check if we have cached steps from a previous successful run
-    const cachedSteps = await db.getCachedSteps(test.id);
-
-    if (cachedSteps && cachedSteps.length > 0) {
+    // The `cachedSteps` property on the `test` object is populated from the DB when the test is loaded.
+    if (test.cachedSteps && test.cachedSteps.length > 0) {
       logger.separator('MAIN TEST - USING CACHED STEPS');
-      logger.success(`Using ${cachedSteps.length} cached steps from previous successful run`);
-      mainTestSteps = cachedSteps;
+      logger.success(`Using ${test.cachedSteps.length} cached steps from previous successful run`);
+      mainTestSteps = [...test.cachedSteps]; // Assign to mainTestSteps
+
+      // Ensure we start by navigating to the base URL if the first step isn't a navigation
+      if (mainTestSteps[0].action !== 'navigate') {
+        mainTestSteps.unshift({
+          action: 'navigate',
+          url: test.baseUrl
+        });
+        logger.info(`Added automatic navigation to ${test.baseUrl}`);
+      }
       usedCachedSteps = true;
       // No AI cost when using cached steps
     } else {
