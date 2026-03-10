@@ -1,4 +1,4 @@
-import { chromium, Browser, Page } from 'playwright';
+import { chromium, Browser, Page, Locator } from 'playwright';
 import { logger } from '../utils/logger';
 import type { TestStep, PerformanceMetrics, NetworkCall, ConsoleMessage } from '@shared/types';
 
@@ -9,6 +9,23 @@ export class AutomationService {
   private clickCount: number = 0;
   private consoleMessages: ConsoleMessage[] = [];
   private networkCalls: NetworkCall[] = [];
+
+  private isComplexLocator(selector: string): boolean {
+    return selector.startsWith('locator(') ||
+      selector.startsWith('getBy') ||
+      selector.includes('.filter(') ||
+      selector.includes('.first()') ||
+      selector.includes('.last()') ||
+      selector.includes('.nth(');
+  }
+
+  private resolveLocator(selector: string): Locator {
+    if (selector.includes(';') || selector.includes('=>') || selector.includes('function')) {
+      throw new Error('Invalid locator format');
+    }
+    const getLocator = new Function('page', `return page.${selector}`);
+    return getLocator(this.page);
+  }
 
   async initialize() {
     this.browser = await chromium.launch({
@@ -285,10 +302,27 @@ export class AutomationService {
 
           case 'verify':
             const verifyTarget = step.target || step.element || step.selector;
-            const element = await this.page.$(verifyTarget);
-            success = !!element;
-            if (!success) {
-              error = `Element not found: ${verifyTarget}`;
+            if (!verifyTarget) {
+              throw new Error('Verify step requires a target/selector');
+            }
+
+            if (this.isComplexLocator(verifyTarget)) {
+              try {
+                const locator = this.resolveLocator(verifyTarget);
+                success = await locator.first().isVisible();
+                if (!success) {
+                  error = `Element not visible or not found: ${verifyTarget}`;
+                }
+              } catch (e: any) {
+                success = false;
+                error = `Failed to verify: ${e.message}`;
+              }
+            } else {
+              const element = await this.page.$(verifyTarget);
+              success = !!element;
+              if (!success) {
+                error = `Element not found: ${verifyTarget}`;
+              }
             }
             break;
 
@@ -394,6 +428,41 @@ export class AutomationService {
     }
 
     const timeout = condition.timeout || 5000;
+    const selector = condition.selector;
+
+    if (selector && this.isComplexLocator(selector)) {
+      try {
+        const locator = this.resolveLocator(selector);
+
+        switch (condition.type) {
+          case 'visible':
+            await locator.waitFor({ state: 'visible', timeout });
+            break;
+          case 'hidden':
+            await locator.waitFor({ state: 'hidden', timeout });
+            break;
+          case 'enabled':
+            await this.waitForLocatorState(locator, 'enabled', timeout);
+            break;
+          case 'disabled':
+            await this.waitForLocatorState(locator, 'disabled', timeout);
+            break;
+          case 'text':
+            if (condition.text) {
+              await this.waitForLocatorText(locator, condition.text, timeout);
+            }
+            break;
+          case 'value':
+            if (condition.text) {
+              await this.waitForLocatorValue(locator, condition.text, timeout);
+            }
+            break;
+        }
+        return;
+      } catch (err: any) {
+        throw new Error(`Complex wait failed for ${selector}: ${err.message}`);
+      }
+    }
 
     switch (condition.type) {
       case 'visible':
@@ -457,6 +526,50 @@ export class AutomationService {
     }
   }
 
+  private async waitForLocatorState(locator: Locator, state: 'enabled' | 'disabled', timeout: number): Promise<void> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      const isEnabled = await locator.isEnabled();
+      if ((state === 'enabled' && isEnabled) || (state === 'disabled' && !isEnabled)) {
+        return;
+      }
+      await this.page!.waitForTimeout(100);
+    }
+    throw new Error(`Timeout waiting for locator to be ${state}`);
+  }
+
+  private async waitForLocatorText(locator: Locator, text: string, timeout: number): Promise<void> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      try {
+        const content = await locator.first().textContent();
+        if (content && content.includes(text)) {
+          return;
+        }
+      } catch (e: any) {
+        // Ignore errors during waiting
+      }
+      await this.page!.waitForTimeout(100);
+    }
+    throw new Error(`Timeout waiting for locator to have text "${text}"`);
+  }
+
+  private async waitForLocatorValue(locator: Locator, value: string, timeout: number): Promise<void> {
+    const startTime = Date.now();
+    while (Date.now() - startTime < timeout) {
+      try {
+        const actualValue = await locator.first().inputValue();
+        if (actualValue === value) {
+          return;
+        }
+      } catch (e: any) {
+        // Ignore errors during waiting
+      }
+      await this.page!.waitForTimeout(100);
+    }
+    throw new Error(`Timeout waiting for locator to have value "${value}"`);
+  }
+
   private async smartFill(target: string, value: string, waitForElements: boolean = true): Promise<void> {
     if (!this.page) {
       throw new Error('Page not initialized');
@@ -478,10 +591,9 @@ export class AutomationService {
     const selectorChecks = selectors.map(async (selector) => {
       try {
         // Special handling for Playwright Locator chains
-        if (selector.startsWith('locator(') || selector.startsWith('getBy') || selector.includes('.filter(')) {
+        if (this.isComplexLocator(selector)) {
           try {
-            const getLocator = new Function('page', `return page.${selector}`);
-            const locator = getLocator(this.page);
+            const locator = this.resolveLocator(selector);
             await locator.waitFor({ state: 'visible', timeout: waitForElements ? 10000 : 2000 });
             return selector;
           } catch (e) {
@@ -528,9 +640,8 @@ export class AutomationService {
       console.log(`Race won by: ${winningSelector}`);
 
       // Handle advanced selectors
-      if (winningSelector.startsWith('locator(') || winningSelector.startsWith('getBy') || winningSelector.includes('.filter(')) {
-        const getLocator = new Function('page', `return page.${winningSelector}`);
-        const locator = getLocator(this.page);
+      if (this.isComplexLocator(winningSelector)) {
+        const locator = this.resolveLocator(winningSelector);
         await locator.fill(value);
         console.log(`Successfully filled advanced locator ${winningSelector} with: ${value}`);
         return;
@@ -607,16 +718,9 @@ export class AutomationService {
     const selectorChecks = selectors.map(async (selector) => {
       try {
         // Special handling for Playwright Locator chains (from recording)
-        // e.g. locator('div').filter(...) or getByRole(...)
-        if (selector.startsWith('locator(') || selector.startsWith('getBy') || selector.includes('.filter(')) {
+        if (this.isComplexLocator(selector)) {
           try {
-            // Determine if we should treat this as a raw Playwright locator
-            // We constructs a function to evaluate it against 'page'
-            // This allows executing codegen'd locator chains
-            const getLocator = new Function('page', `return page.${selector}`);
-            const locator = getLocator(this.page);
-
-            // For 'race' purposes, we verify it works by waiting for it
+            const locator = this.resolveLocator(selector);
             await locator.waitFor({ state: 'visible', timeout: waitForElements ? 10000 : 2000 });
             return selector;
           } catch (e) {
@@ -654,9 +758,8 @@ export class AutomationService {
       console.log(`Race won by: ${winningSelector}`);
 
       // Handle advanced selectors
-      if (winningSelector.startsWith('locator(') || winningSelector.startsWith('getBy') || winningSelector.includes('.filter(')) {
-        const getLocator = new Function('page', `return page.${winningSelector}`);
-        const locator = getLocator(this.page);
+      if (this.isComplexLocator(winningSelector)) {
+        const locator = this.resolveLocator(winningSelector);
         await locator.click();
         console.log(`Successfully clicked advanced locator: ${winningSelector}`);
         return;
@@ -695,10 +798,9 @@ export class AutomationService {
     const selectorChecks = selectors.map(async (selector) => {
       try {
         // Advanced selectors (Playwright chains)
-        if (selector.startsWith('locator(') || selector.startsWith('getBy') || selector.includes('.filter(')) {
+        if (this.isComplexLocator(selector)) {
           try {
-            const getLocator = new Function('page', `return page.${selector}`);
-            const locator = getLocator(this.page);
+            const locator = this.resolveLocator(selector);
             await locator.waitFor({ state: 'visible', timeout: waitForElements ? 10000 : 2000 });
             return selector;
           } catch (e: any) {
@@ -737,12 +839,8 @@ export class AutomationService {
       const winningSelector = await Promise.any(selectorChecks);
       console.log(`Race won by: ${winningSelector}`);
 
-      if (winningSelector.startsWith('locator(') || winningSelector.startsWith('getBy') || winningSelector.includes('.filter(')) {
-        const getLocator = new Function('page', `return page.${winningSelector}`);
-        const locator = getLocator(this.page);
-        // Prefer pressSequentially for typing, fallback to type if needed
-        // pressSequentially was introduced recently. type is deprecated but safer fallback if version mismatch.
-        // Given 1.40+, pressSequentially is available.
+      if (this.isComplexLocator(winningSelector)) {
+        const locator = this.resolveLocator(winningSelector);
         if (locator.pressSequentially) {
           await locator.pressSequentially(value, { delay: 50 });
         } else {

@@ -1,5 +1,6 @@
 export interface TestRequest {
     id: string;
+    name?: string;
     baseUrl: string;
     description: string;
     credentials?: {
@@ -20,11 +21,15 @@ export interface TestRequest {
     tags?: string[];
     globalWaitTime?: number;
     waitForElements?: boolean;
+    maxRetries?: number;
 }
+export type TestAction = 'navigate' | 'click' | 'fill' | 'type' | 'select' | 'check' | 'press' | 'wait' | 'verify' | 'screenshot' | 'inspect';
 export interface TestStep {
-    action: string;
+    action: TestAction;
+    target?: string;
     element?: string;
     value?: string;
+    description?: string;
     timestamp: Date;
     screenshot?: string;
     success: boolean;
@@ -79,6 +84,8 @@ export interface TestResult {
     consoleMessages?: ConsoleMessage[];
     networkCalls?: NetworkCall[];
     usedCachedSteps?: boolean;
+    retryCount?: number;
+    currentAction?: string;
 }
 export interface AIConfig {
     provider: 'openai' | 'anthropic' | 'google' | 'custom';

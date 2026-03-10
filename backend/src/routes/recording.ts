@@ -193,9 +193,71 @@ function parsePlaywrightTrace(content: string): TestStep[] {
                 timestamp: new Date()
             });
         }
+
+        // Capture assertions (expect)
+        else if (trimmed.startsWith('await expect(') || trimmed.startsWith('expect(')) {
+            const expectation = parseExpectation(trimmed);
+            if (expectation) {
+                steps.push(expectation);
+            }
+        }
     }
 
     return steps;
+}
+
+function parseExpectation(line: string): TestStep | null {
+    // line: await expect(page.locator('ion-title').filter({ hasText: 'Visit Details' }).locator('div')).toBeVisible();
+
+    const supportedMatchers = ['toBeVisible', 'toBeHidden', 'toBeEnabled', 'toBeDisabled'];
+    const matcherPattern = new RegExp(`\\.(${supportedMatchers.join('|')})\\((.*)\\);?$`);
+    const methodMatch = line.match(matcherPattern);
+
+    if (!methodMatch) {
+        return null;
+    }
+
+    const matcherFullString = methodMatch[0];
+
+    let prefix = line.substring(0, line.length - matcherFullString.length).trim();
+
+    // Remove 'await ' if present
+    prefix = prefix.replace(/^await /, '').trim();
+
+    // Handle .not modifier (optional)
+    if (prefix.endsWith('.not')) {
+        prefix = prefix.substring(0, prefix.length - 4).trim();
+    }
+
+    // Must start with expect(
+    if (!prefix.startsWith('expect(')) {
+        return null;
+    }
+
+    // Must end with )
+    if (!prefix.endsWith(')')) {
+        return null;
+    }
+
+    // Extract selector inside expect(...)
+    // Remove 'expect(' from start and ')' from end
+    let selectorRaw = prefix.substring(7, prefix.length - 1);
+
+    // Clean up selector - remove 'page.' prefix
+    let selector = selectorRaw.trim();
+    if (selector.startsWith('page.')) {
+        selector = selector.substring(5);
+    }
+
+    // We already verified the matcher above, so no need to do it again.
+
+    return {
+        action: 'verify',
+        target: selector,
+        description: `Verify element: ${selector}`,
+        timestamp: new Date(),
+        success: true
+    };
 }
 
 function extractSelector(line: string, action: string): string {

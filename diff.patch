@@ -1,0 +1,286 @@
+﻿diff --git a/backend/src/debug-execution.ts b/backend/src/debug-execution.ts
+new file mode 100644
+index 0000000..fc6729a
+--- /dev/null
++++ b/backend/src/debug-execution.ts
+@@ -0,0 +1,43 @@
++
++import { AutomationService } from './services/automation';
++
++async function run() {
++    console.log('Initializing AutomationService...');
++    const service = new AutomationService();
++    await service.initialize();
++
++    // Test case: Wait for h1 with text 'Example Domain' on example.com
++    // Using complex locator: locator('h1').filter({ hasText: 'Example Domain' })
++    const steps = [
++        { action: 'navigate', url: 'https://example.com' },
++        {
++            action: 'wait',
++            waitForCondition: {
++                type: 'visible',
++                selector: "locator('h1').filter({ hasText: 'Example Domain' })",
++                timeout: 10000
++            }
++        }
++    ];
++
++    try {
++        console.log('Starting execution...');
++        const result = await service.executeSteps(steps, undefined, async (msg) => console.log(msg));
++
++        const failed = result.steps.some((s: any) => !s.success);
++        if (failed) {
++            console.error('FAILURE: Some steps failed');
++            console.log(JSON.stringify(result.steps, null, 2));
++            process.exit(1);
++        } else {
++            console.log('SUCCESS: All steps passed');
++            process.exit(0);
++        }
++
++    } catch (err) {
++        console.error('Execution threw error:', err);
++        process.exit(1);
++    }
++}
++
++run();
+diff --git a/backend/src/routes/recording.ts b/backend/src/routes/recording.ts
+index 1170302..ab08617 100644
+--- a/backend/src/routes/recording.ts
++++ b/backend/src/routes/recording.ts
+@@ -193,11 +193,83 @@ function parsePlaywrightTrace(content: string): TestStep[] {
+                 timestamp: new Date()
+             });
+         }
++
++        // Capture assertions (expect)
++        else if (trimmed.startsWith('await expect(') || trimmed.startsWith('expect(')) {
++            const expectation = parseExpectation(trimmed);
++            if (expectation) {
++                steps.push(expectation);
++            }
++        }
+     }
+ 
+     return steps;
+ }
+ 
++function parseExpectation(line: string): TestStep | null {
++    // line: await expect(page.locator('ion-title').filter({ hasText: 'Visit Details' }).locator('div')).toBeVisible();
++
++    // Extract matcher at the end of the line
++    // Use greedy matching .* to find the LAST occurrence of .matcher(...)
++    const matcherMatch = line.match(/.*(\.[a-zA-Z]+\(.*\);?)$/);
++    if (!matcherMatch) {
++        return null;
++    }
++
++    // matcherMatch[1] is the full matcher string (.toBeVisible(...))
++    const matcherFullString = matcherMatch[1];
++
++    // Parse the matcher string itself to get name and args
++    const methodMatch = matcherFullString.match(/^\.([a-zA-Z]+)\((.*)?\);?$/);
++    if (!methodMatch) return null;
++
++    const matcher = methodMatch[1];
++
++    let prefix = line.substring(0, line.length - matcherFullString.length).trim();
++
++    // Remove 'await ' if present
++    prefix = prefix.replace(/^await /, '').trim();
++
++    // Handle .not modifier (optional)
++    if (prefix.endsWith('.not')) {
++        prefix = prefix.substring(0, prefix.length - 4).trim();
++    }
++
++    // Must start with expect(
++    if (!prefix.startsWith('expect(')) {
++        return null;
++    }
++
++    // Must end with )
++    if (!prefix.endsWith(')')) {
++        return null;
++    }
++
++    // Extract selector inside expect(...)
++    // Remove 'expect(' from start and ')' from end
++    let selectorRaw = prefix.substring(7, prefix.length - 1);
++
++    // Clean up selector - remove 'page.' prefix
++    let selector = selectorRaw.trim();
++    if (selector.startsWith('page.')) {
++        selector = selector.substring(5);
++    }
++
++    // Only support visibility assertions for now (most common)
++    const supportedMatchers = ['toBeVisible', 'toBeHidden', 'toBeEnabled', 'toBeDisabled'];
++    if (!supportedMatchers.includes(matcher)) {
++        return null;
++    }
++
++    return {
++        action: 'verify',
++        target: selector,
++        description: `Verify element: ${selector}`,
++        timestamp: new Date(),
++        success: true
++    };
++}
++
+ function extractSelector(line: string, action: string): string {
+     // Determine the part before the action
+     // line: await page.getByRole('link', { name: 'Get Started' }).click();
+diff --git a/backend/src/services/automation.ts b/backend/src/services/automation.ts
+index 9f056dd..e0167f3 100644
+--- a/backend/src/services/automation.ts
++++ b/backend/src/services/automation.ts
+@@ -1,4 +1,4 @@
+-import { chromium, Browser, Page } from 'playwright';
++import { chromium, Browser, Page, Locator } from 'playwright';
+ import { logger } from '../utils/logger';
+ import type { TestStep, PerformanceMetrics, NetworkCall, ConsoleMessage } from '@shared/types';
+ 
+@@ -285,10 +285,37 @@ export class AutomationService {
+ 
+           case 'verify':
+             const verifyTarget = step.target || step.element || step.selector;
+-            const element = await this.page.$(verifyTarget);
+-            success = !!element;
+-            if (!success) {
+-              error = `Element not found: ${verifyTarget}`;
++            if (!verifyTarget) {
++              throw new Error('Verify step requires a target/selector');
++            }
++
++            // Check if it's a complex Playwright locator
++            const isComplexVerify = verifyTarget.startsWith('locator(') ||
++              verifyTarget.startsWith('getBy') ||
++              verifyTarget.includes('.filter(') ||
++              verifyTarget.includes('.first()') ||
++              verifyTarget.includes('.last()');
++
++            if (isComplexVerify) {
++              try {
++                const getLocator = new Function('page', `return page.${verifyTarget}`);
++                const locator = getLocator(this.page);
++                const count = await locator.count();
++                success = count > 0;
++                if (!success) {
++                  error = `Element not found: ${verifyTarget}`;
++                }
++              } catch (e: any) {
++                success = false;
++                error = `Failed to verify: ${e.message}`;
++              }
++            } else {
++              // Standard CSS selector
++              const element = await this.page.$(verifyTarget);
++              success = !!element;
++              if (!success) {
++                error = `Element not found: ${verifyTarget}`;
++              }
+             }
+             break;
+ 
+@@ -394,6 +421,53 @@ export class AutomationService {
+     }
+ 
+     const timeout = condition.timeout || 5000;
++    const selector = condition.selector;
++
++    // Check if selector is complex Playwright locator
++    const isComplex = selector && (
++      selector.startsWith('locator(') ||
++      selector.startsWith('getBy') ||
++      selector.includes('.filter(') ||
++      selector.includes('.first()') ||
++      selector.includes('.last()') ||
++      selector.includes('.nth(')
++    );
++
++    if (isComplex) {
++      try {
++        // Evaluate the locator string to get actual Locator object
++        const getLocator = new Function('page', `return page.${selector}`);
++        const locator = getLocator(this.page);
++
++        switch (condition.type) {
++          case 'visible':
++            await locator.waitFor({ state: 'visible', timeout });
++            break;
++          case 'hidden':
++            await locator.waitFor({ state: 'hidden', timeout });
++            break;
++          case 'enabled':
++            await this.waitForLocatorState(locator, 'enabled', timeout);
++            break;
++          case 'disabled':
++            await this.waitForLocatorState(locator, 'disabled', timeout);
++            break;
++          case 'text':
++            if (condition.text) {
++              await this.waitForLocatorText(locator, condition.text, timeout);
++            }
++            break;
++          case 'value':
++            if (condition.text) {
++              await this.waitForLocatorValue(locator, condition.text, timeout);
++            }
++            break;
++        }
++        return;
++      } catch (err: any) {
++        throw new Error(`Complex wait failed for ${selector}: ${err.message}`);
++      }
++    }
+ 
+     switch (condition.type) {
+       case 'visible':
+@@ -457,6 +531,42 @@ export class AutomationService {
+     }
+   }
+ 
++  private async waitForLocatorState(locator: Locator, state: 'enabled' | 'disabled', timeout: number): Promise<void> {
++    const startTime = Date.now();
++    while (Date.now() - startTime < timeout) {
++      const isEnabled = await locator.isEnabled();
++      if ((state === 'enabled' && isEnabled) || (state === 'disabled' && !isEnabled)) {
++        return;
++      }
++      await this.page!.waitForTimeout(100);
++    }
++    throw new Error(`Timeout waiting for locator to be ${state}`);
++  }
++
++  private async waitForLocatorText(locator: Locator, text: string, timeout: number): Promise<void> {
++    const startTime = Date.now();
++    while (Date.now() - startTime < timeout) {
++      const content = await locator.textContent();
++      if (content && content.includes(text)) {
++        return;
++      }
++      await this.page!.waitForTimeout(100);
++    }
++    throw new Error(`Timeout waiting for locator to have text "${text}"`);
++  }
++
++  private async waitForLocatorValue(locator: Locator, value: string, timeout: number): Promise<void> {
++    const startTime = Date.now();
++    while (Date.now() - startTime < timeout) {
++      const actualValue = await locator.inputValue();
++      if (actualValue === value) {
++        return;
++      }
++      await this.page!.waitForTimeout(100);
++    }
++    throw new Error(`Timeout waiting for locator to have value "${value}"`);
++  }
++
+   private async smartFill(target: string, value: string, waitForElements: boolean = true): Promise<void> {
+     if (!this.page) {
+       throw new Error('Page not initialized');
