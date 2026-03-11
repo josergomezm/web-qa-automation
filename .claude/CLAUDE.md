@@ -21,7 +21,7 @@ backend/
       tests.ts            # POST /api/tests — create & execute tests
       results.ts          # GET /api/results — retrieve test results
       recording.ts        # POST /api/recording/start — Playwright codegen recording
-      groups.ts           # /api/groups — group CRUD + parallel execution; /api/group-runs
+      groups.ts           # /api/groups — group CRUD + parallel execution + device list; /api/group-runs
     services/
       automation.ts       # Playwright browser automation (step executor)
       ai.ts               # Multi-provider AI service (step generation, retries)
@@ -46,7 +46,7 @@ frontend/
     views/                 # Dashboard, TestCreator, TestsList, TestResults, TestResultDetail, Configuration, GroupsView, GroupRunDetail
     components/            # RecordingModal, CreateTestModal, EditTestModal, CreateGroupModal, EditGroupModal
 shared/
-  types.ts                # TestStep, TestRequest, TestResult, TestGroup, GroupRun, AIConfig, etc.
+  types.ts                # TestStep, TestRequest, TestResult, TestGroup, GroupRun, DeviceInfo, AIConfig, etc.
 ```
 
 ## Key Flows
@@ -54,7 +54,8 @@ shared/
 1. **AI-generated tests:** User describes test in natural language -> AI generates TestStep[] -> AutomationService executes steps in Playwright browser
 2. **Recorded tests:** User clicks Record -> Playwright codegen opens browser -> user interacts -> codegen output parsed into TestStep[] -> optionally AI-analyzed -> stored and executable
 3. **Retry logic:** On failure, AI can regenerate steps with error context
-4. **Group execution:** User creates a TestGroup (name, testIds, tags, maxParallel) -> clicks Run Group -> backend creates a GroupRun, launches tests in a concurrency-limited pool (each test gets its own browser) -> GroupRun summary updates as tests complete -> frontend polls for live progress
+4. **Group execution:** User creates a TestGroup (name, testIds, tags, maxParallel, devices) -> clicks Run Group -> backend creates a GroupRun, launches tests in a concurrency-limited pool (each test gets its own browser) -> GroupRun summary updates as tests complete -> frontend polls for live progress
+5. **Device emulation:** Groups can specify `devices: string[]` (e.g., "iPhone 13", "Pixel 7"). Execution creates a test × device matrix — each test runs once per device. Empty devices = desktop only (backward compatible).
 
 ## Architecture Decisions
 
@@ -63,7 +64,9 @@ shared/
 - `AutomationService.isComplexLocator()` and `resolveLocator()` centralize complex locator detection and execution — all smart methods (click/fill/type/verify/wait) delegate to these.
 - Selector racing (`Promise.any`) is used in smartClick/smartFill/smartType to try multiple selector strategies in parallel.
 - `DatabaseService` uses per-file write serialization (promise queue) to prevent race conditions during parallel test execution. `updateGroupRun()` performs atomic read-modify-write within the queue.
-- `executeTestAsync` lives in `backend/src/services/testExecution.ts` (shared by single-test and group execution routes). Accepts optional `groupRunId` to link results to a group run.
+- `executeTestAsync` lives in `backend/src/services/testExecution.ts` (shared by single-test and group execution routes). Accepts optional `groupRunId` and `device` parameters.
+- Device emulation uses `playwright.devices` registry. `AutomationService.initialize(deviceName?)` spreads device descriptors into `browser.newContext()` for viewport, userAgent, touch, and isMobile emulation. Unknown device names log a warning and proceed without emulation.
+- `GET /api/groups/devices` returns a curated list of ~13 devices (DeviceInfo[]) from the Playwright device registry.
 - Group parallel execution uses a concurrency pool (`executeWithConcurrencyLimit`) that limits simultaneous browser instances via `maxParallel` (1–10, default 3).
 
 ## Frontend Architecture (3-Layer Pattern)
