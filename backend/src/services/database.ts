@@ -1,11 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
-import type { TestRequest, TestResult } from '@shared/types';
+import type { TestRequest, TestResult, TestGroup, GroupRun } from '@shared/types';
 
 export class DatabaseService {
   private dataDir: string;
   private testsFile: string;
   private resultsFile: string;
+  private groupsFile: string;
+  private groupRunsFile: string;
   private writeQueues: Map<string, Promise<void>> = new Map();
 
   private async serializedWrite(filePath: string, writeFn: () => Promise<void>): Promise<void> {
@@ -19,6 +21,8 @@ export class DatabaseService {
     this.dataDir = path.join(process.cwd(), 'data');
     this.testsFile = path.join(this.dataDir, 'tests.json');
     this.resultsFile = path.join(this.dataDir, 'results.json');
+    this.groupsFile = path.join(this.dataDir, 'groups.json');
+    this.groupRunsFile = path.join(this.dataDir, 'group-runs.json');
     this.ensureDataDir();
   }
 
@@ -235,5 +239,80 @@ export class DatabaseService {
     const results = await this.readJsonFile<TestResult>(this.resultsFile);
     const filteredResults = results.filter(r => r.testRequestId !== testId);
     await this.writeJsonFile(this.resultsFile, filteredResults);
+  }
+
+  // Group operations
+  async saveGroup(group: TestGroup): Promise<void> {
+    await this.ensureDataDir();
+    const groups = await this.readJsonFile<TestGroup>(this.groupsFile);
+    const index = groups.findIndex(g => g.id === group.id);
+    if (index >= 0) {
+      groups[index] = group;
+    } else {
+      groups.push(group);
+    }
+    await this.writeJsonFile(this.groupsFile, groups);
+  }
+
+  async getGroup(id: string): Promise<TestGroup | null> {
+    const groups = await this.readJsonFile<TestGroup>(this.groupsFile);
+    return groups.find(g => g.id === id) || null;
+  }
+
+  async getAllGroups(): Promise<TestGroup[]> {
+    return this.readJsonFile<TestGroup>(this.groupsFile);
+  }
+
+  async deleteGroup(id: string): Promise<void> {
+    await this.ensureDataDir();
+    const groups = await this.readJsonFile<TestGroup>(this.groupsFile);
+    const filtered = groups.filter(g => g.id !== id);
+    await this.writeJsonFile(this.groupsFile, filtered);
+  }
+
+  // Group Run operations
+  async saveGroupRun(groupRun: GroupRun): Promise<void> {
+    await this.ensureDataDir();
+    const runs = await this.readJsonFile<GroupRun>(this.groupRunsFile);
+    const index = runs.findIndex(r => r.id === groupRun.id);
+    if (index >= 0) {
+      runs[index] = groupRun;
+    } else {
+      runs.push(groupRun);
+    }
+    await this.writeJsonFile(this.groupRunsFile, runs);
+  }
+
+  async getGroupRun(id: string): Promise<GroupRun | null> {
+    const runs = await this.readJsonFile<GroupRun>(this.groupRunsFile);
+    return runs.find(r => r.id === id) || null;
+  }
+
+  async getGroupRunsByGroupId(groupId: string): Promise<GroupRun[]> {
+    const runs = await this.readJsonFile<GroupRun>(this.groupRunsFile);
+    return runs.filter(r => r.groupId === groupId);
+  }
+
+  async deleteGroupRunsByGroupId(groupId: string): Promise<void> {
+    await this.ensureDataDir();
+    const runs = await this.readJsonFile<GroupRun>(this.groupRunsFile);
+    const filtered = runs.filter(r => r.groupId !== groupId);
+    await this.writeJsonFile(this.groupRunsFile, filtered);
+  }
+
+  async cancelStaleGroupRuns(): Promise<void> {
+    await this.ensureDataDir();
+    const runs = await this.readJsonFile<GroupRun>(this.groupRunsFile);
+    let changed = false;
+    for (const run of runs) {
+      if (run.status === 'running') {
+        run.status = 'cancelled';
+        run.completedAt = new Date().toISOString();
+        changed = true;
+      }
+    }
+    if (changed) {
+      await this.writeJsonFile(this.groupRunsFile, runs);
+    }
   }
 }
