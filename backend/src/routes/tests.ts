@@ -11,7 +11,7 @@ const db = new DatabaseService();
 // Create a new test
 testRoutes.post('/', async (req, res) => {
   try {
-    const { baseUrl, name, description, credentials, formInputs, expectedOutcomes, aiModel, aiConfig, prerequisiteTests, isReusable, tags, cachedSteps } = req.body;
+    const { baseUrl, name, description, credentials, formInputs, expectedOutcomes, aiModel, aiConfig, prerequisiteTests, isReusable, tags, cachedSteps, device } = req.body;
 
     logger.info('Creating new test');
     logger.json('AI Config', {
@@ -35,6 +35,7 @@ testRoutes.post('/', async (req, res) => {
       prerequisiteTests,
       isReusable,
       tags,
+      device,
       aiModel,
       createdAt: new Date(),
       cachedSteps: cachedSteps,

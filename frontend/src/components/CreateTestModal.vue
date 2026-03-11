@@ -340,6 +340,16 @@ const recordedDevice = ref<string | undefined>(undefined)
 const handleRecordingCompleted = (steps: any[], analysis?: any, device?: string) => {
   showRecordingModal.value = false
   recordedDevice.value = device
+
+  // Auto-add 'Mobile' tag if recorded on a non-desktop device
+  if (device && !device.startsWith('Desktop')) {
+    const currentTags = tagsText.value.split(',').map(t => t.trim()).filter(Boolean)
+    if (!currentTags.includes('Mobile')) {
+      currentTags.push('Mobile')
+      tagsText.value = currentTags.join(', ')
+    }
+  }
+
   if (steps && steps.length > 0) {
     recordedSteps.value = steps
 
