@@ -6,6 +6,14 @@ export class DatabaseService {
   private dataDir: string;
   private testsFile: string;
   private resultsFile: string;
+  private writeQueues: Map<string, Promise<void>> = new Map();
+
+  private async serializedWrite(filePath: string, writeFn: () => Promise<void>): Promise<void> {
+    const previous = this.writeQueues.get(filePath) || Promise.resolve();
+    const next = previous.then(writeFn, writeFn);
+    this.writeQueues.set(filePath, next);
+    return next;
+  }
 
   constructor() {
     this.dataDir = path.join(process.cwd(), 'data');
@@ -32,7 +40,9 @@ export class DatabaseService {
   }
 
   private async writeJsonFile<T>(filePath: string, data: T[]): Promise<void> {
-    await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+    await this.serializedWrite(filePath, async () => {
+      await fs.writeFile(filePath, JSON.stringify(data, null, 2));
+    });
   }
 
   // Test operations
