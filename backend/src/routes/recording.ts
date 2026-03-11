@@ -11,7 +11,7 @@ export const recordingRoutes = Router();
 
 // Start a recording session
 recordingRoutes.post('/start', async (req, res) => {
-    const { url } = req.body;
+    const { url, device } = req.body;
 
     if (!url) {
         return res.status(400).json({ message: 'URL is required to start recording' });
@@ -30,7 +30,12 @@ recordingRoutes.post('/start', async (req, res) => {
         logger.info(`Temp file: ${tempFile}`);
 
         // Spawn playwright codegen
-        const codegen = spawn('npx', ['playwright', 'codegen', '--output', tempFile, url], {
+        const codegenArgs = ['playwright', 'codegen', '--output', tempFile];
+        if (device) {
+            codegenArgs.push('--device', device);
+        }
+        codegenArgs.push(url);
+        const codegen = spawn('npx', codegenArgs, {
             shell: true,
             stdio: 'inherit'
         });

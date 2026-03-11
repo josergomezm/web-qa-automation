@@ -146,11 +146,11 @@ export const useTestStore = defineStore('tests', () => {
     }
   }
 
-  async function recordTest(url: string) {
+  async function recordTest(url: string, device?: string) {
     const configStore = useConfigStore()
     error.value = null
     try {
-      return await recordingApi.start(url, configStore.aiConfig)
+      return await recordingApi.start(url, configStore.aiConfig, device)
     } catch (err: any) {
       error.value = err.response?.data?.message || 'Failed to record test'
       throw err

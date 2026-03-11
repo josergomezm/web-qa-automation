@@ -38,6 +38,27 @@
                 </ul>
               </div>
 
+              <!-- Device selector -->
+              <div class="mb-6">
+                <label for="recording-device" class="block text-sm font-medium text-heading mb-1 text-left">
+                  Device <span class="text-secondary text-xs">(optional)</span>
+                </label>
+                <select
+                  id="recording-device"
+                  v-model="selectedDevice"
+                  class="block w-full border-border rounded-button bg-surface text-secondary sm:text-sm focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">Desktop (default)</option>
+                  <option
+                    v-for="device in groupStore.devices"
+                    :key="device.name"
+                    :value="device.name"
+                  >
+                    {{ device.name }} ({{ device.viewport.width }}&times;{{ device.viewport.height }})
+                  </option>
+                </select>
+              </div>
+
               <div class="flex flex-col sm:flex-row gap-3 justify-center">
                 <button @click="close"
                   class="inline-flex justify-center rounded-button border border-border shadow-sm px-4 py-2 bg-surface text-base font-medium text-secondary hover:text-heading hover:border-border-hover focus:outline-none transition-colors duration-200 sm:text-sm">
@@ -121,6 +142,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { useTestStore } from '@/stores/tests'
+import { useGroupStore } from '@/stores/groups'
 
 interface Props {
   isOpen: boolean
@@ -136,8 +158,10 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const testStore = useTestStore()
+const groupStore = useGroupStore()
 const status = ref<'instructions' | 'connecting' | 'recording' | 'processing' | 'error'>('instructions')
 const errorMessage = ref('')
+const selectedDevice = ref('')
 
 const startRecording = async () => {
   status.value = 'connecting'
@@ -145,7 +169,7 @@ const startRecording = async () => {
 
   try {
     // This awaits until the backend process finishes (user closes browser)
-    const result = await testStore.recordTest(props.url)
+    const result = await testStore.recordTest(props.url, selectedDevice.value || undefined)
     const { steps, analysis } = result
 
     status.value = 'processing'
@@ -171,6 +195,8 @@ watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     status.value = 'instructions'
     errorMessage.value = ''
+    selectedDevice.value = ''
+    groupStore.fetchDevices()
   }
 })
 
