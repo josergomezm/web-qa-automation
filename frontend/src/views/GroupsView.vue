@@ -71,6 +71,17 @@
           </span>
         </div>
 
+        <!-- Device Badges -->
+        <div v-if="group.devices && group.devices.length > 0" class="flex flex-wrap gap-1 mt-1">
+          <span
+            v-for="device in group.devices"
+            :key="device"
+            class="inline-flex items-center px-1.5 py-0.5 text-xs bg-cream text-secondary rounded-pill border border-border"
+          >
+            {{ device }}
+          </span>
+        </div>
+
         <!-- Max Parallel -->
         <div class="text-xs text-secondary">
           Max parallel: <span class="font-semibold text-heading">{{ group.maxParallel }}</span>
