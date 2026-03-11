@@ -1,4 +1,4 @@
-import { chromium, Browser, Page, Locator } from 'playwright';
+import { chromium, devices as playwrightDevices, Browser, Page, Locator } from 'playwright';
 import { logger } from '../utils/logger';
 import type { TestStep, PerformanceMetrics, NetworkCall, ConsoleMessage } from '@shared/types';
 
@@ -27,7 +27,7 @@ export class AutomationService {
     return getLocator(this.page);
   }
 
-  async initialize() {
+  async initialize(deviceName?: string) {
     this.browser = await chromium.launch({
       headless: false, // Show browser for debugging
       args: [
@@ -42,13 +42,18 @@ export class AutomationService {
       ]
     });
 
+    const deviceDescriptor = deviceName ? playwrightDevices[deviceName] : undefined;
+    if (deviceName && !deviceDescriptor) {
+      logger.warn(`Unknown device "${deviceName}", proceeding without emulation`);
+    }
+
     const context = await this.browser.newContext({
-      // Override geolocation permission specifically
-      geolocation: { latitude: 0, longitude: 0 },
-      // Disable notifications and downloads
+      ...(deviceDescriptor || {}),
       acceptDownloads: false,
-      // Set user agent to avoid detection
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      ...(deviceDescriptor ? {} : {
+        geolocation: { latitude: 0, longitude: 0 },
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      }),
     });
 
     // Set geolocation to prevent popups
