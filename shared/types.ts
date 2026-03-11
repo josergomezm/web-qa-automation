@@ -107,6 +107,7 @@ export interface TestResult {
   retryCount?: number; // Number of retries attempted
   currentAction?: string; // Current action being executed (e.g. "Waiting for network...", "Clicking element...")
   groupRunId?: string;
+  device?: string  // Device name used for emulation, undefined = desktop
 }
 
 export interface AIConfig {
@@ -135,6 +136,7 @@ export interface TestGroup {
   testIds: string[];
   tags: string[];
   maxParallel: number;
+  devices: string[]  // e.g., ["iPhone 13", "Pixel 7"]. Empty = desktop only.
   createdAt: string;
   updatedAt: string;
 }
@@ -144,6 +146,12 @@ export interface GroupRunSummary {
   passed: number;
   failed: number;
   running: number;
+}
+
+export interface DeviceInfo {
+  name: string
+  viewport: { width: number; height: number }
+  isMobile: boolean
 }
 
 export interface GroupRun {
