@@ -52,6 +52,21 @@
                 Tests <span class="text-danger">*</span>
                 <span class="ml-1 text-xs text-secondary font-normal">({{ selectedTestIds.length }} selected)</span>
               </label>
+              <!-- Tag filter -->
+              <div v-if="allTestTags.length > 0" class="flex flex-wrap gap-1.5 mb-2">
+                <button
+                  v-for="tag in allTestTags"
+                  :key="tag"
+                  type="button"
+                  @click="selectedTagFilter = selectedTagFilter === tag ? null : tag"
+                  :class="selectedTagFilter === tag
+                    ? 'bg-primary text-white'
+                    : 'bg-cream text-secondary hover:text-heading'"
+                  class="text-xs px-2 py-0.5 rounded-pill border border-border transition-colors duration-150"
+                >
+                  {{ tag }}
+                </button>
+              </div>
               <input
                 v-model="testSearch"
                 type="text"
@@ -179,14 +194,29 @@ const form = ref({
 const selectedTestIds = ref<string[]>([])
 const testSearch = ref('')
 const tagInput = ref('')
+const selectedTagFilter = ref<string | null>(null)
+
+const allTestTags = computed(() => {
+  const tags = new Set<string>()
+  for (const t of testStore.tests) {
+    if (t.tags) t.tags.forEach(tag => tags.add(tag))
+  }
+  return [...tags].sort()
+})
 
 const filteredTests = computed(() => {
+  let tests = testStore.tests
+  if (selectedTagFilter.value) {
+    tests = tests.filter(t => t.tags?.includes(selectedTagFilter.value!))
+  }
   const query = testSearch.value.trim().toLowerCase()
-  if (!query) return testStore.tests
-  return testStore.tests.filter(t => {
-    const label = (t.name || t.description || '').toLowerCase()
-    return label.includes(query)
-  })
+  if (query) {
+    tests = tests.filter(t => {
+      const label = (t.name || t.description || '').toLowerCase()
+      return label.includes(query)
+    })
+  }
+  return tests
 })
 
 const canSubmit = computed(() => {
@@ -210,6 +240,7 @@ function resetForm() {
   selectedTestIds.value = []
   testSearch.value = ''
   tagInput.value = ''
+  selectedTagFilter.value = null
 }
 
 async function handleSubmit() {
