@@ -137,6 +137,14 @@
                 {{ resultStatusLabel(resultId) }}
               </span>
 
+              <!-- Device badge -->
+              <span
+                v-if="getResult(resultId)?.device"
+                class="inline-flex items-center px-1.5 py-0.5 text-xs bg-cream text-secondary rounded-pill border border-border"
+              >
+                {{ getResult(resultId)?.device }}
+              </span>
+
               <!-- View Details link -->
               <router-link
                 :to="`/results/${resultId}`"
