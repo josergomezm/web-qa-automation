@@ -29,14 +29,30 @@ async function executeWithConcurrencyLimit(
 async function executeGroupAsync(
   groupRunId: string,
   testIds: string[],
+  devices: string[],
   maxParallel: number,
   aiConfig: any
 ): Promise<void> {
-  const tasks = testIds.map((testId) => async (): Promise<void> => {
+  interface Task { testId: string; device?: string }
+  const taskDefs: Task[] = [];
+
+  if (devices.length > 0) {
+    for (const testId of testIds) {
+      for (const device of devices) {
+        taskDefs.push({ testId, device });
+      }
+    }
+  } else {
+    for (const testId of testIds) {
+      taskDefs.push({ testId });
+    }
+  }
+
+  const tasks = taskDefs.map((task) => async (): Promise<void> => {
     // Load the test
-    const test = await db.getTest(testId);
+    const test = await db.getTest(task.testId);
     if (!test) {
-      console.error(`[group-run] Test ${testId} not found, skipping`);
+      console.error(`[group-run] Test ${task.testId} not found, skipping`);
       return;
     }
 
@@ -71,7 +87,7 @@ async function executeGroupAsync(
     });
 
     // Execute
-    await executeTestAsync(test, aiConfig, resultId, groupRunId);
+    await executeTestAsync(test, aiConfig, resultId, groupRunId, task.device);
 
     // Determine outcome and update summary atomically
     const completedResult = await db.getResult(resultId);
@@ -134,7 +150,7 @@ router.get('/devices', (_req, res) => {
 // POST / — Create group
 router.post('/', async (req, res) => {
   try {
-    const { name, description, testIds, tags, maxParallel } = req.body;
+    const { name, description, testIds, tags, maxParallel, devices } = req.body;
 
     if (!name || typeof name !== 'string' || name.trim() === '') {
       return res.status(400).json({ message: 'Group name is required' });
@@ -160,6 +176,7 @@ router.post('/', async (req, res) => {
       description: description || '',
       testIds,
       tags: Array.isArray(tags) ? tags : [],
+      devices: Array.isArray(devices) ? devices : [],
       maxParallel: clampedParallel,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -206,7 +223,7 @@ router.patch('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Group not found' });
     }
 
-    const { name, description, testIds, tags, maxParallel } = req.body;
+    const { name, description, testIds, tags, maxParallel, devices } = req.body;
 
     const updated: TestGroup = {
       ...existing,
@@ -217,6 +234,7 @@ router.patch('/:id', async (req, res) => {
       ...(maxParallel !== undefined
         ? { maxParallel: Math.min(10, Math.max(1, Number(maxParallel) || existing.maxParallel)) }
         : {}),
+      ...(devices !== undefined ? { devices } : {}),
       updatedAt: new Date().toISOString(),
     };
 
@@ -277,6 +295,10 @@ router.post('/:id/execute', async (req, res) => {
       });
     }
 
+    const totalTasks = group.devices && group.devices.length > 0
+      ? group.testIds.length * group.devices.length
+      : group.testIds.length;
+
     const groupRun: GroupRun = {
       id: uuidv4(),
       groupId: group.id,
@@ -284,17 +306,17 @@ router.post('/:id/execute', async (req, res) => {
       resultIds: [],
       startedAt: new Date().toISOString(),
       summary: {
-        total: group.testIds.length,
+        total: totalTasks,
         passed: 0,
         failed: 0,
-        running: group.testIds.length,
+        running: totalTasks,
       },
     };
 
     await db.saveGroupRun(groupRun);
 
     // Launch execution in background — do not await
-    executeGroupAsync(groupRun.id, group.testIds, group.maxParallel, aiConfig).catch((err) => {
+    executeGroupAsync(groupRun.id, group.testIds, group.devices ?? [], group.maxParallel, aiConfig).catch((err) => {
       console.error(`[group-run] executeGroupAsync failed for run ${groupRun.id}:`, err);
     });
 
