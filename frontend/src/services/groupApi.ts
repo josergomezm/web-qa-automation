@@ -1,5 +1,5 @@
 import api from './api'
-import type { TestGroup, GroupRun } from '@shared/types'
+import type { TestGroup, GroupRun, DeviceInfo } from '@shared/types'
 
 export const groupApi = {
   getAll() {
@@ -10,7 +10,7 @@ export const groupApi = {
     return api.get<TestGroup>(`/api/groups/${id}`)
   },
 
-  create(data: { name: string; description?: string; testIds: string[]; tags: string[]; maxParallel: number }) {
+  create(data: { name: string; description?: string; testIds: string[]; tags: string[]; maxParallel: number; devices?: string[] }) {
     return api.post<TestGroup>('/api/groups', data)
   },
 
@@ -32,5 +32,9 @@ export const groupApi = {
 
   getRun(runId: string) {
     return api.get<GroupRun>(`/api/group-runs/${runId}`)
+  },
+
+  getDevices() {
+    return api.get<DeviceInfo[]>('/api/groups/devices')
   },
 }

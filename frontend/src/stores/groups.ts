@@ -1,11 +1,12 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import { groupApi } from '../services/groupApi'
-import type { TestGroup, GroupRun } from '@shared/types'
+import type { TestGroup, GroupRun, DeviceInfo } from '@shared/types'
 
 export const useGroupStore = defineStore('groups', () => {
   const groups = ref<TestGroup[]>([])
   const groupRuns = ref<GroupRun[]>([])
+  const devices = ref<DeviceInfo[]>([])
 
   // Per-action loading flags
   const fetchingGroups = ref(false)
@@ -113,6 +114,15 @@ export const useGroupStore = defineStore('groups', () => {
     }
   }
 
+  async function fetchDevices() {
+    if (devices.value.length > 0) return // cached
+    try {
+      devices.value = await groupApi.getDevices()
+    } catch (err: any) {
+      console.error('Failed to fetch devices:', err.message)
+    }
+  }
+
   async function fetchGroupRun(runId: string): Promise<GroupRun | null> {
     try {
       return await groupApi.getRun(runId)
@@ -126,6 +136,7 @@ export const useGroupStore = defineStore('groups', () => {
     // State
     groups,
     groupRuns,
+    devices,
     fetchingGroups,
     creatingGroup,
     executingGroupId,
@@ -141,5 +152,6 @@ export const useGroupStore = defineStore('groups', () => {
     executeGroup,
     fetchGroupRuns,
     fetchGroupRun,
+    fetchDevices,
   }
 })
