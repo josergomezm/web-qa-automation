@@ -24,7 +24,7 @@
         <div class="flex items-center gap-2">
           <select
             v-model="selectedGroupId"
-            class="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-300"
+            class="px-3 py-2 text-sm border border-border rounded-button bg-surface text-secondary hover:text-heading hover:border-border-hover focus:ring-primary/20 focus:border-primary transition-colors duration-200"
           >
             <option :value="null">All Tests</option>
             <option v-for="group in groupStore.groups" :key="group.id" :value="group.id">
@@ -35,7 +35,7 @@
             v-if="selectedGroupId"
             @click="runSelectedGroup"
             :disabled="groupStore.executingGroupId === selectedGroupId"
-            class="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            class="px-3 py-2 text-sm font-medium bg-success text-white rounded-button hover:bg-success/90 disabled:opacity-50 transition-colors duration-200"
           >
             {{ groupStore.executingGroupId === selectedGroupId ? 'Running...' : 'Run Group' }}
           </button>
