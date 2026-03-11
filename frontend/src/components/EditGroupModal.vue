@@ -310,7 +310,7 @@ watch(() => props.isOpen, (isOpen) => {
     tagInput.value = ''
     selectedTagFilter.value = null
   }
-})
+}, { immediate: true })
 
 watch(() => props.group, (group) => {
   if (props.isOpen && group) {

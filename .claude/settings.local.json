@@ -11,7 +11,8 @@
       "Bash(cd \"C:/Users/jose_/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.0/lib/brainstorm-server/\" && npm ls 2>&1 | head -5)",
       "Bash(cd \"C:/Users/jose_/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.0/lib/brainstorm-server/\" && npm install 2>&1)",
       "Bash(npx vite:*)",
-      "Bash(npx vue-tsc:*)"
+      "Bash(npx vue-tsc:*)",
+      "Bash(git add:*)"
     ]
   }
 }
