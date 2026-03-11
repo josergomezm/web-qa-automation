@@ -151,7 +151,7 @@ interface Props {
 
 interface Emits {
   (e: 'close'): void
-  (e: 'completed', steps: any[], analysis?: any): void
+  (e: 'completed', steps: any[], analysis?: any, device?: string): void
 }
 
 const props = defineProps<Props>()
@@ -175,7 +175,7 @@ const startRecording = async () => {
     status.value = 'processing'
 
     if (steps && steps.length > 0) {
-      emit('completed', steps, analysis)
+      emit('completed', steps, analysis, selectedDevice.value || undefined)
     } else {
       throw new Error('No steps were recorded.')
     }

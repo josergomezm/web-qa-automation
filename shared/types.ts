@@ -21,6 +21,7 @@ export interface TestRequest {
   prerequisiteTests?: string[]; // IDs of tests that should run before this test
   isReusable?: boolean; // Mark tests that can be used as prerequisites
   tags?: string[]; // Tags for categorizing tests (e.g., 'login', 'setup', 'navigation')
+  device?: string; // Device name for emulation (e.g., 'iPhone 13'). Undefined = desktop.
   globalWaitTime?: number; // Default wait time between steps (in milliseconds)
   waitForElements?: boolean; // Whether to wait for elements to be visible/clickable
   maxRetries?: number; // Maximum number of retries for failed tests

@@ -335,8 +335,11 @@ const openRecordingModal = () => {
   showRecordingModal.value = true
 }
 
-const handleRecordingCompleted = (steps: any[], analysis?: any) => {
+const recordedDevice = ref<string | undefined>(undefined)
+
+const handleRecordingCompleted = (steps: any[], analysis?: any, device?: string) => {
   showRecordingModal.value = false
+  recordedDevice.value = device
   if (steps && steps.length > 0) {
     recordedSteps.value = steps
 
@@ -366,6 +369,7 @@ const handleRecordingCompleted = (steps: any[], analysis?: any) => {
 
 const clearRecording = () => {
   recordedSteps.value = []
+  recordedDevice.value = undefined
 }
 
 const closeModal = () => {
@@ -429,7 +433,8 @@ const handleSubmit = async () => {
       maxRetries: form.value.maxRetries || 0,
       waitForElements: form.value.waitForElements,
       aiModel: configStore.aiConfig.model,
-      cachedSteps: recordedSteps.value.length > 0 ? recordedSteps.value : undefined
+      cachedSteps: recordedSteps.value.length > 0 ? recordedSteps.value : undefined,
+      device: recordedDevice.value || undefined
     }
 
     const test = await testStore.createTest(testData)

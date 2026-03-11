@@ -97,9 +97,9 @@ testRoutes.post('/:id/execute', async (req, res) => {
     // Save initial result
     await db.saveResult(result);
 
-    // Execute test asynchronously
-    logger.info(`Starting async execution for test: ${test.id}`);
-    executeTestAsync(test, aiConfig, result.id);
+    // Execute test asynchronously (pass device if test was recorded on one)
+    logger.info(`Starting async execution for test: ${test.id}${test.device ? ` on ${test.device}` : ''}`);
+    executeTestAsync(test, aiConfig, result.id, undefined, test.device);
 
     res.json(result);
   } catch (error) {
