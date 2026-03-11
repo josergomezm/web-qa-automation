@@ -10,7 +10,8 @@ export async function executeTestAsync(
   test: TestRequest,
   aiConfig: any,
   resultId: string,
-  groupRunId?: string
+  groupRunId?: string,
+  device?: string
 ): Promise<void> {
   const automation = new AutomationService();
   const executionId = resultId.slice(-8); // Use last 8 chars of result ID for tracking
@@ -49,7 +50,7 @@ export async function executeTestAsync(
     // Initialize browser automation early since we need it for prerequisites
     logger.separator('BROWSER AUTOMATION');
     logger.info('Initializing browser automation...');
-    await automation.initialize();
+    await automation.initialize(device);
     logger.success('Browser automation initialized successfully');
 
     let steps: any[] = [];
@@ -316,7 +317,8 @@ export async function executeTestAsync(
       networkCalls,
       usedCachedSteps: usedCachedSteps,
       retryCount: retryCount,
-      ...(groupRunId ? { groupRunId } : {})
+      ...(groupRunId ? { groupRunId } : {}),
+      ...(device ? { device } : {})
     };
 
     await db.saveResult(updatedResult);
@@ -354,7 +356,8 @@ export async function executeTestAsync(
       executedAt: new Date(),
       completedAt: new Date(),
       error: error instanceof Error ? error.message : 'Unknown error',
-      ...(groupRunId ? { groupRunId } : {})
+      ...(groupRunId ? { groupRunId } : {}),
+      ...(device ? { device } : {})
     };
 
     await db.saveResult(errorResult);
