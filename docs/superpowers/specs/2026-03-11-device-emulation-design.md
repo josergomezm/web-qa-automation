@@ -38,7 +38,7 @@ The existing `summary.total` reflects the full matrix (tests × devices). No str
 
 ## Curated Device List
 
-Defined server-side, served via `GET /api/devices`. All names verified against `playwright.devices` registry:
+Defined server-side, served via `GET /api/groups/devices`. All names verified against `playwright.devices` registry:
 
 - iPhone 15
 - iPhone 14
