@@ -32,7 +32,7 @@ recordingRoutes.post('/start', async (req, res) => {
         // Spawn playwright codegen
         const codegenArgs = ['playwright', 'codegen', '--output', tempFile];
         if (device) {
-            codegenArgs.push('--device', device);
+            codegenArgs.push('--device', `"${device}"`);
         }
         codegenArgs.push(url);
         const codegen = spawn('npx', codegenArgs, {
