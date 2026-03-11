@@ -1,7 +1,17 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:playwright.dev)"
+      "WebFetch(domain:playwright.dev)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:vueschool.io)",
+      "WebFetch(domain:pinia-colada.esm.dev)",
+      "WebFetch(domain:masteringpinia.com)",
+      "WebSearch",
+      "WebFetch(domain:pinia.vuejs.org)",
+      "Bash(cd \"C:/Users/jose_/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.0/lib/brainstorm-server/\" && npm ls 2>&1 | head -5)",
+      "Bash(cd \"C:/Users/jose_/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.0/lib/brainstorm-server/\" && npm install 2>&1)",
+      "Bash(npx vite:*)",
+      "Bash(npx vue-tsc:*)"
     ]
   }
 }

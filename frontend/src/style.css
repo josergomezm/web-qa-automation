@@ -2,11 +2,49 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@layer base {
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background-color: #faf8f5;
+    color: #2c2c2c;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Form element base styling */
+  input[type="text"],
+  input[type="url"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  select,
+  textarea {
+    @apply rounded-button border-border bg-surface font-sans text-heading;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply border-primary ring-1 ring-primary/20;
+  }
+}
+
+@layer components {
+  /* Card hover lift effect */
+  .card-hover {
+    @apply transition-all duration-200 ease-in-out;
+  }
+  .card-hover:hover {
+    @apply shadow-card-hover -translate-y-0.5;
+  }
+
+  /* Nav label style */
+  .nav-label {
+    @apply font-sans text-[11px] uppercase tracking-[1.5px] font-semibold;
+  }
+
+  /* Section label style */
+  .section-label {
+    @apply font-sans text-[10px] uppercase tracking-[1.5px] text-muted font-semibold;
+  }
 }

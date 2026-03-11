@@ -1,26 +1,26 @@
 <template>
     <div class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         <div v-if="loading" class="text-center py-12">
-            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p class="mt-2 text-gray-600">Loading test result...</p>
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <p class="mt-2 text-secondary">Loading test result...</p>
         </div>
 
-        <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-md p-4">
-            <p class="text-red-800">{{ error }}</p>
+        <div v-else-if="error" class="bg-danger-bg border border-danger/20 rounded-md p-4">
+            <p class="text-danger">{{ error }}</p>
         </div>
 
         <div v-else-if="result" class="space-y-6">
             <!-- Header -->
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-surface shadow-card rounded-card border border-border p-6">
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center space-x-3">
-                        <button @click="$router.go(-1)" class="text-gray-400 hover:text-gray-600">
+                        <button @click="$router.go(-1)" class="text-muted hover:text-heading transition-colors duration-200">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M15 19l-7-7 7-7"></path>
                             </svg>
                         </button>
-                        <h1 class="text-2xl font-bold text-gray-900">Test Result Details</h1>
+                        <h1 class="font-serif text-2xl text-heading">Test Result Details</h1>
                         <div :class="[
                             'w-3 h-3 rounded-full',
                             result.status === 'passed' ? 'bg-green-500' :
@@ -28,15 +28,15 @@
                                     result.status === 'running' ? 'bg-yellow-500' : 'bg-gray-500'
                         ]" />
                     </div>
-                    <div class="text-sm text-gray-500">
+                    <div class="text-sm text-muted">
                         {{ formatDate(result.executedAt) }}
                     </div>
                 </div>
-                
+
                 <!-- Detailed Loading Status -->
-                <div v-if="result.status === 'running' && result.currentAction" class="mb-4 p-4 bg-blue-50 border border-blue-100 rounded-lg flex items-center">
-                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
-                    <span class="text-blue-800 font-medium">{{ result.currentAction }}</span>
+                <div v-if="result.status === 'running' && result.currentAction" class="mb-4 p-4 bg-primary-light border border-primary/20 rounded-lg flex items-center">
+                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mr-3"></div>
+                    <span class="text-primary font-medium">{{ result.currentAction }}</span>
                 </div>
 
                 <!-- Cached Steps Indicator -->
@@ -55,36 +55,36 @@
                 <!-- Summary Stats -->
                 <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
                     <div class="text-center">
-                        <div class="text-2xl font-bold text-blue-600">{{ result.performance.totalTestTime }}ms</div>
-                        <div class="text-sm text-gray-500">Total Time</div>
+                        <div class="text-2xl font-bold text-primary">{{ result.performance.totalTestTime }}ms</div>
+                        <div class="section-label">Total Time</div>
                     </div>
                     <div class="text-center">
                         <div class="text-2xl font-bold text-green-600">{{ result.performance.clickCount }}</div>
-                        <div class="text-sm text-gray-500">Clicks</div>
+                        <div class="section-label">Clicks</div>
                     </div>
                     <div class="text-center">
                         <div class="text-2xl font-bold text-purple-600">{{ result.performance.networkRequests }}</div>
-                        <div class="text-sm text-gray-500">Network Calls</div>
+                        <div class="section-label">Network Calls</div>
                     </div>
                     <div class="text-center">
                         <div class="text-2xl font-bold text-red-600">{{ result.performance.consoleErrors.length }}</div>
-                        <div class="text-sm text-gray-500">Console Errors</div>
+                        <div class="section-label">Console Errors</div>
                     </div>
                     <div class="text-center">
                         <div class="text-2xl font-bold text-orange-600">${{ result.cost.toFixed(6) }}</div>
-                        <div class="text-sm text-gray-500">Cost</div>
+                        <div class="section-label">Cost</div>
                     </div>
                     <div class="text-center" v-if="result.retryCount !== undefined">
-                        <div class="text-2xl font-bold" :class="result.retryCount > 0 ? 'text-yellow-600' : 'text-gray-600'">
+                        <div class="text-2xl font-bold" :class="result.retryCount > 0 ? 'text-yellow-600' : 'text-muted'">
                             {{ result.retryCount }}
                         </div>
-                        <div class="text-sm text-gray-500">Retries</div>
+                        <div class="section-label">Retries</div>
                     </div>
                 </div>
             </div>
 
             <!-- Test Steps with Screenshots -->
-            <div class="bg-white shadow rounded-lg p-6">
+            <div class="bg-surface shadow-card rounded-card border border-border p-6">
                 <!-- Prerequisite Steps Section -->
                 <div v-if="getPrerequisiteSteps(result).length > 0" class="mb-8">
                     <div class="flex items-center space-x-2 mb-4">
@@ -93,7 +93,7 @@
                                 d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1">
                             </path>
                         </svg>
-                        <h2 class="text-lg font-medium text-gray-900">Prerequisite Steps</h2>
+                        <h2 class="text-lg font-medium text-heading">Prerequisite Steps</h2>
                         <span class="text-sm text-purple-600 bg-purple-100 px-3 py-1 rounded-full">
                             {{ getUniquePrerequisiteTests(result).length }} prerequisite test(s)
                         </span>
@@ -126,37 +126,37 @@
                                             </div>
                                         </div>
                                         <div>
-                                            <h3 class="text-sm font-medium text-gray-900">{{ step.action.toUpperCase()
+                                            <h3 class="text-sm font-medium text-heading">{{ step.action.toUpperCase()
                                                 }}</h3>
-                                            <p class="text-sm text-gray-600">{{ step.element }}</p>
-                                            <p v-if="step.value" class="text-sm text-gray-500">Value: {{ step.value }}
+                                            <p class="text-sm text-secondary">{{ step.element }}</p>
+                                            <p v-if="step.value" class="text-sm text-secondary">Value: {{ step.value }}
                                             </p>
                                         </div>
                                     </div>
-                                    <div class="text-xs text-gray-500">
+                                    <div class="text-xs text-muted">
                                         {{ formatTime(step.timestamp) }}
                                     </div>
                                 </div>
 
-                                <div v-if="step.error" class="mb-3 p-3 bg-red-100 border border-red-200 rounded">
-                                    <p class="text-red-800 text-sm">{{ step.error }}</p>
+                                <div v-if="step.error" class="mb-3 p-3 bg-danger-bg border border-danger/20 rounded">
+                                    <p class="text-danger text-sm">{{ step.error }}</p>
                                 </div>
 
                                 <!-- Screenshot Accordion for prerequisite step -->
                                 <div v-if="step.screenshot" class="mt-3 border rounded-lg">
                                     <button @click="togglePrerequisiteScreenshot(`${step.prerequisiteTestId}-${getPrerequisiteStepIndex(result, step)}`)"
-                                        class="flex items-center justify-between w-full px-3 py-2 text-left bg-gray-50 hover:bg-gray-100 rounded-t-lg">
+                                        class="flex items-center justify-between w-full px-3 py-2 text-left bg-cream hover:bg-cream/80 rounded-t-lg">
                                         <div class="flex items-center space-x-2">
-                                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor"
+                                            <svg class="w-4 h-4 text-muted" fill="none" stroke="currentColor"
                                                 viewBox="0 0 24 24">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                     d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
                                                 </path>
                                             </svg>
-                                            <span class="text-sm font-medium text-gray-700">Screenshot</span>
+                                            <span class="text-sm font-medium text-heading">Screenshot</span>
                                         </div>
                                         <svg :class="[
-                                            'w-4 h-4 text-gray-400 transition-transform duration-200',
+                                            'w-4 h-4 text-muted transition-transform duration-200',
                                             expandedPrerequisiteScreenshots.has(`${step.prerequisiteTestId}-${getPrerequisiteStepIndex(result, step)}`) ? 'transform rotate-180' : ''
                                         ]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -164,12 +164,12 @@
                                         </svg>
                                     </button>
 
-                                    <div v-show="expandedPrerequisiteScreenshots.has(`${step.prerequisiteTestId}-${getPrerequisiteStepIndex(result, step)}`)" class="p-3 bg-white rounded-b-lg">
+                                    <div v-show="expandedPrerequisiteScreenshots.has(`${step.prerequisiteTestId}-${getPrerequisiteStepIndex(result, step)}`)" class="p-3 bg-surface rounded-b-lg">
                                         <img :src="`data:image/png;base64,${step.screenshot}`"
                                             :alt="`Screenshot for prerequisite step ${getPrerequisiteStepIndex(result, step)}`"
                                             class="max-w-full h-auto rounded border cursor-pointer hover:opacity-75 transition-opacity"
                                             @click="openFullscreenModal(step.screenshot, `Prerequisite Step ${getPrerequisiteStepIndex(result, step)} Screenshot`)" />
-                                        <p class="text-xs text-gray-500 mt-2">Click image to view fullscreen</p>
+                                        <p class="text-xs text-muted mt-2">Click image to view fullscreen</p>
                                     </div>
                                 </div>
                             </div>
@@ -184,7 +184,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                 d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
                         </svg>
-                        <h2 class="text-lg font-medium text-gray-900">Main Test Steps</h2>
+                        <h2 class="text-lg font-medium text-heading">Main Test Steps</h2>
                     </div>
                     <div class="space-y-6">
                         <div v-for="(step, index) in getMainTestSteps(result)" :key="index"
@@ -201,36 +201,36 @@
                                         </div>
                                     </div>
                                     <div>
-                                        <h3 class="text-sm font-medium text-gray-900">{{ step.action.toUpperCase() }}
+                                        <h3 class="text-sm font-medium text-heading">{{ step.action.toUpperCase() }}
                                         </h3>
-                                        <p class="text-sm text-gray-600">{{ step.element }}</p>
-                                        <p v-if="step.value" class="text-sm text-gray-500">Value: {{ step.value }}</p>
+                                        <p class="text-sm text-secondary">{{ step.element }}</p>
+                                        <p v-if="step.value" class="text-sm text-secondary">Value: {{ step.value }}</p>
                                     </div>
                                 </div>
-                                <div class="text-xs text-gray-500">
+                                <div class="text-xs text-muted">
                                     {{ formatTime(step.timestamp) }}
                                 </div>
                             </div>
 
-                            <div v-if="step.error" class="mb-3 p-3 bg-red-100 border border-red-200 rounded">
-                                <p class="text-red-800 text-sm">{{ step.error }}</p>
+                            <div v-if="step.error" class="mb-3 p-3 bg-danger-bg border border-danger/20 rounded">
+                                <p class="text-danger text-sm">{{ step.error }}</p>
                             </div>
 
                             <!-- Screenshot Accordion for this step -->
                             <div v-if="step.screenshot" class="mt-3 border rounded-lg">
                                 <button @click="toggleStepScreenshot(index)"
-                                    class="flex items-center justify-between w-full px-3 py-2 text-left bg-gray-50 hover:bg-gray-100 rounded-t-lg">
+                                    class="flex items-center justify-between w-full px-3 py-2 text-left bg-cream hover:bg-cream/80 rounded-t-lg">
                                     <div class="flex items-center space-x-2">
-                                        <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor"
+                                        <svg class="w-4 h-4 text-muted" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                                 d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
                                             </path>
                                         </svg>
-                                        <span class="text-sm font-medium text-gray-700">Screenshot</span>
+                                        <span class="text-sm font-medium text-heading">Screenshot</span>
                                     </div>
                                     <svg :class="[
-                                        'w-4 h-4 text-gray-400 transition-transform duration-200',
+                                        'w-4 h-4 text-muted transition-transform duration-200',
                                         expandedScreenshots.has(index) ? 'transform rotate-180' : ''
                                     ]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -238,12 +238,12 @@
                                     </svg>
                                 </button>
 
-                                <div v-show="expandedScreenshots.has(index)" class="p-3 bg-white rounded-b-lg">
+                                <div v-show="expandedScreenshots.has(index)" class="p-3 bg-surface rounded-b-lg">
                                     <img :src="`data:image/png;base64,${step.screenshot}`"
                                         :alt="`Screenshot for step ${index + 1}`"
                                         class="max-w-full h-auto rounded border cursor-pointer hover:opacity-75 transition-opacity"
                                         @click="openFullscreenModal(step.screenshot, `Step ${index + 1} Screenshot`)" />
-                                    <p class="text-xs text-gray-500 mt-2">Click image to view fullscreen</p>
+                                    <p class="text-xs text-muted mt-2">Click image to view fullscreen</p>
                                 </div>
                             </div>
                         </div>
@@ -252,14 +252,14 @@
 
                 <!-- Console Messages Accordion -->
                 <div v-if="result.consoleMessages && result.consoleMessages.length > 0"
-                    class="bg-white shadow rounded-lg">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                    class="bg-surface shadow-card rounded-card border border-border">
+                    <div class="px-6 py-4 border-b border-border">
                         <button @click="showConsoleMessages = !showConsoleMessages"
                             class="flex items-center justify-between w-full text-left">
                             <div class="flex items-center space-x-3">
-                                <h2 class="text-lg font-medium text-gray-900">Console Messages</h2>
+                                <h2 class="text-lg font-medium text-heading">Console Messages</h2>
                                 <span
-                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cream text-heading border border-border">
                                     {{ result.consoleMessages.length }}
                                 </span>
                                 <span v-if="consoleErrorCount > 0"
@@ -272,7 +272,7 @@
                                 </span>
                             </div>
                             <svg :class="[
-                                'w-5 h-5 text-gray-400 transition-transform duration-200',
+                                'w-5 h-5 text-muted transition-transform duration-200',
                                 showConsoleMessages ? 'transform rotate-180' : ''
                             ]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -289,7 +289,7 @@
                                 message.type === 'error' ? 'bg-red-50 text-red-800 border border-red-200' :
                                     message.type === 'warning' ? 'bg-yellow-50 text-yellow-800 border border-yellow-200' :
                                         message.type === 'info' ? 'bg-blue-50 text-blue-800 border border-blue-200' :
-                                            'bg-gray-50 text-gray-800 border border-gray-200'
+                                            'bg-cream text-heading border border-border'
                             ]">
                                 <div class="flex justify-between items-start">
                                     <div class="flex-1">
@@ -297,7 +297,7 @@
                                             }}</span>
                                         <span>{{ message.text }}</span>
                                     </div>
-                                    <span class="text-xs text-gray-500 ml-2">{{ formatTime(message.timestamp) }}</span>
+                                    <span class="text-xs text-muted ml-2">{{ formatTime(message.timestamp) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -305,14 +305,14 @@
                 </div>
 
                 <!-- Network Calls Accordion -->
-                <div v-if="result.networkCalls && result.networkCalls.length > 0" class="bg-white shadow rounded-lg">
-                    <div class="px-6 py-4 border-b border-gray-200">
+                <div v-if="result.networkCalls && result.networkCalls.length > 0" class="bg-surface shadow-card rounded-card border border-border">
+                    <div class="px-6 py-4 border-b border-border">
                         <button @click="showNetworkCalls = !showNetworkCalls"
                             class="flex items-center justify-between w-full text-left">
                             <div class="flex items-center space-x-3">
-                                <h2 class="text-lg font-medium text-gray-900">Network Calls</h2>
+                                <h2 class="text-lg font-medium text-heading">Network Calls</h2>
                                 <span
-                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-cream text-heading border border-border">
                                     {{ result.networkCalls.length }}
                                 </span>
                                 <span v-if="networkErrorCount > 0"
@@ -325,7 +325,7 @@
                                 </span>
                             </div>
                             <svg :class="[
-                                'w-5 h-5 text-gray-400 transition-transform duration-200',
+                                'w-5 h-5 text-muted transition-transform duration-200',
                                 showNetworkCalls ? 'transform rotate-180' : ''
                             ]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -337,30 +337,30 @@
 
                     <div v-show="showNetworkCalls" class="px-6 py-4">
                         <div class="overflow-x-auto">
-                            <table class="min-w-full divide-y divide-gray-200">
-                                <thead class="bg-gray-50">
+                            <table class="min-w-full divide-y divide-border">
+                                <thead class="bg-cream">
                                     <tr>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            class="px-6 py-3 text-left section-label">
                                             Method</th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            class="px-6 py-3 text-left section-label">
                                             URL</th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            class="px-6 py-3 text-left section-label">
                                             Status</th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            class="px-6 py-3 text-left section-label">
                                             Time</th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            class="px-6 py-3 text-left section-label">
                                             Size</th>
                                         <th
-                                            class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                            class="px-6 py-3 text-left section-label">
                                             Timestamp</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white divide-y divide-gray-200">
+                                <tbody class="bg-surface divide-y divide-border">
                                     <tr v-for="(call, index) in result.networkCalls" :key="index">
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <span :class="[
@@ -369,12 +369,12 @@
                                                     call.method === 'POST' ? 'bg-green-100 text-green-800' :
                                                         call.method === 'PUT' ? 'bg-yellow-100 text-yellow-800' :
                                                             call.method === 'DELETE' ? 'bg-red-100 text-red-800' :
-                                                                'bg-gray-100 text-gray-800'
+                                                                'bg-cream text-heading border border-border'
                                             ]">
                                                 {{ call.method }}
                                             </span>
                                         </td>
-                                        <td class="px-6 py-4 text-sm text-gray-900 max-w-xs truncate" :title="call.url">
+                                        <td class="px-6 py-4 text-sm text-heading max-w-xs truncate" :title="call.url">
                                             {{ call.url }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap">
@@ -383,19 +383,19 @@
                                                 call.status >= 200 && call.status < 300 ? 'bg-green-100 text-green-800' :
                                                     call.status >= 300 && call.status < 400 ? 'bg-yellow-100 text-yellow-800' :
                                                         call.status >= 400 ? 'bg-red-100 text-red-800' :
-                                                            'bg-gray-100 text-gray-800'
+                                                            'bg-cream text-heading border border-border'
                                             ]">
                                                 {{ call.status }}
                                             </span>
-                                            <span v-else class="text-gray-400">-</span>
+                                            <span v-else class="text-muted">-</span>
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-heading">
                                             {{ call.responseTime ? `${call.responseTime}ms` : '-' }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-heading">
                                             {{ call.size ? formatBytes(call.size) : '-' }}
                                         </td>
-                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-muted">
                                             {{ formatTime(call.timestamp) }}
                                         </td>
                                     </tr>
@@ -448,11 +448,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useTestStore } from '@/stores/tests'
-import type { TestResult } from '@shared/types'
+import { useResultStore } from '@/stores/results'
+import type { TestResult, TestStep } from '@shared/types'
 
 const route = useRoute()
-const testStore = useTestStore()
+const resultStore = useResultStore()
 
 const result = ref<TestResult | null>(null)
 const loading = ref(true)
@@ -499,20 +499,18 @@ const formatTime = (date: Date) => {
     return new Date(date).toLocaleTimeString()
 }
 
-// Helper methods for step categorization
-const getPrerequisiteSteps = (result: any) => {
-    return result.steps?.filter((step: any) => step.isPrerequisite) || []
+const getPrerequisiteSteps = (result: TestResult): TestStep[] => {
+    return result.steps?.filter((step) => step.isPrerequisite) || []
 }
 
-const getMainTestSteps = (result: any) => {
-    return result.steps?.filter((step: any) => step.isMainTest || (!step.isPrerequisite && !step.isMainTest)) || []
+const getMainTestSteps = (result: TestResult): TestStep[] => {
+    return result.steps?.filter((step) => step.isMainTest || (!step.isPrerequisite && !step.isMainTest)) || []
 }
 
-const getUniquePrerequisiteTests = (result: any) => {
+const getUniquePrerequisiteTests = (result: TestResult) => {
     const prereqSteps = getPrerequisiteSteps(result)
-    const uniqueTests = new Map()
-
-    prereqSteps.forEach((step: any) => {
+    const uniqueTests = new Map<string, { id: string; description: string }>()
+    prereqSteps.forEach((step) => {
         if (step.prerequisiteTestId && !uniqueTests.has(step.prerequisiteTestId)) {
             uniqueTests.set(step.prerequisiteTestId, {
                 id: step.prerequisiteTestId,
@@ -520,17 +518,16 @@ const getUniquePrerequisiteTests = (result: any) => {
             })
         }
     })
-
     return Array.from(uniqueTests.values())
 }
 
-const getStepsForPrerequisite = (result: any, prereqTestId: string) => {
-    return getPrerequisiteSteps(result).filter((step: any) => step.prerequisiteTestId === prereqTestId)
+const getStepsForPrerequisite = (result: TestResult, prereqTestId: string): TestStep[] => {
+    return getPrerequisiteSteps(result).filter((step) => step.prerequisiteTestId === prereqTestId)
 }
 
-const getPrerequisiteStepIndex = (result: any, targetStep: any) => {
+const getPrerequisiteStepIndex = (result: TestResult, targetStep: TestStep) => {
     const prereqSteps = getPrerequisiteSteps(result)
-    return prereqSteps.findIndex((step: any) => step === targetStep) + 1
+    return prereqSteps.findIndex((step) => step === targetStep) + 1
 }
 
 const formatBytes = (bytes: number) => {
@@ -541,7 +538,6 @@ const formatBytes = (bytes: number) => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
 }
 
-// Screenshot accordion functions
 const toggleStepScreenshot = (index: number) => {
     if (expandedScreenshots.value.has(index)) {
         expandedScreenshots.value.delete(index)
@@ -558,22 +554,20 @@ const togglePrerequisiteScreenshot = (stepId: string) => {
     }
 }
 
-// Fullscreen modal functions
 const openFullscreenModal = (screenshot: string, title: string) => {
     fullscreenImage.value = screenshot
     fullscreenTitle.value = title
     showFullscreenModal.value = true
-    document.body.style.overflow = 'hidden' // Prevent background scrolling
+    document.body.style.overflow = 'hidden'
 }
 
 const closeFullscreenModal = () => {
     showFullscreenModal.value = false
     fullscreenImage.value = ''
     fullscreenTitle.value = ''
-    document.body.style.overflow = '' // Restore scrolling
+    document.body.style.overflow = ''
 }
 
-// Handle ESC key to close modal
 const handleKeydown = (event: KeyboardEvent) => {
     if (event.key === 'Escape' && showFullscreenModal.value) {
         closeFullscreenModal()
@@ -582,24 +576,12 @@ const handleKeydown = (event: KeyboardEvent) => {
 
 const loadResult = async () => {
     try {
-        // Only show full loading state on initial load
         if (!result.value) {
             loading.value = true
         }
-        
         const resultId = route.params.id as string
-
-        // Get the result from the store or fetch it
-        // Should always fetch fresh data when polling
-        // const foundResult = testStore.results.find(r => r.id === resultId)
-        // if (foundResult && !result.value) {
-        //     result.value = foundResult
-        // } else {
-            // Fetch from API
-            result.value = await testStore.getResult(resultId)
-        // }
+        result.value = await resultStore.fetchResult(resultId)
     } catch (err: any) {
-        // Don't overwrite error on polling failures unless we have no result
         if (!result.value) {
             error.value = err.message || 'Failed to load result'
         }
@@ -633,14 +615,12 @@ onMounted(() => {
             startPolling()
         }
     })
-    // Add event listener for ESC key
     document.addEventListener('keydown', handleKeydown)
 })
 
-// Cleanup event listener
 onUnmounted(() => {
     stopPolling()
     document.removeEventListener('keydown', handleKeydown)
-    document.body.style.overflow = '' // Ensure scrolling is restored
+    document.body.style.overflow = ''
 })
 </script>
