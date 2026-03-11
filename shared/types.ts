@@ -106,6 +106,7 @@ export interface TestResult {
   usedCachedSteps?: boolean; // Indicates if cached steps were used instead of AI generation
   retryCount?: number; // Number of retries attempted
   currentAction?: string; // Current action being executed (e.g. "Waiting for network...", "Clicking element...")
+  groupRunId?: string;
 }
 
 export interface AIConfig {
@@ -124,4 +125,33 @@ export interface TestReport {
     averageExecutionTime: number;
   };
   results: TestResult[];
+}
+
+// Test Groups
+export interface TestGroup {
+  id: string;
+  name: string;
+  description?: string;
+  testIds: string[];
+  tags: string[];
+  maxParallel: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GroupRunSummary {
+  total: number;
+  passed: number;
+  failed: number;
+  running: number;
+}
+
+export interface GroupRun {
+  id: string;
+  groupId: string;
+  status: 'running' | 'passed' | 'failed' | 'partial' | 'cancelled';
+  resultIds: string[];
+  startedAt: string;
+  completedAt?: string;
+  summary: GroupRunSummary;
 }
