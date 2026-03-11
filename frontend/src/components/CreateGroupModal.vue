@@ -166,7 +166,7 @@ const form = ref({
   name: '',
   description: '',
   tags: [] as string[],
-  maxParallel: 1,
+  maxParallel: 3,
 })
 
 const selectedTestIds = ref<string[]>([])

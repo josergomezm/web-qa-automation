@@ -288,6 +288,19 @@ export class DatabaseService {
     return runs.find(r => r.id === id) || null;
   }
 
+  async updateGroupRun(id: string, updateFn: (run: GroupRun) => void): Promise<GroupRun | null> {
+    await this.ensureDataDir();
+    return this.serializedWrite(this.groupRunsFile, async () => {
+      const runs = await this.readJsonFile<GroupRun>(this.groupRunsFile);
+      const index = runs.findIndex(r => r.id === id);
+      if (index < 0) return;
+      updateFn(runs[index]);
+      await fs.writeFile(this.groupRunsFile, JSON.stringify(runs, null, 2));
+    }).then(async () => {
+      return this.getGroupRun(id);
+    });
+  }
+
   async getGroupRunsByGroupId(groupId: string): Promise<GroupRun[]> {
     const runs = await this.readJsonFile<GroupRun>(this.groupRunsFile);
     return runs.filter(r => r.groupId === groupId);

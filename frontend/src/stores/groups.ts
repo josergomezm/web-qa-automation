@@ -29,7 +29,7 @@ export const useGroupStore = defineStore('groups', () => {
     try {
       groups.value = await groupApi.getAll()
     } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to fetch groups'
+      error.value = err.response?.data?.message || err.message || 'Failed to fetch groups'
     } finally {
       fetchingGroups.value = false
     }
@@ -49,7 +49,7 @@ export const useGroupStore = defineStore('groups', () => {
       groups.value.push(group)
       return group
     } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to create group'
+      error.value = err.response?.data?.message || err.message || 'Failed to create group'
       return null
     } finally {
       creatingGroup.value = false
@@ -64,7 +64,7 @@ export const useGroupStore = defineStore('groups', () => {
       if (index >= 0) groups.value[index] = updated
       return updated
     } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to update group'
+      error.value = err.response?.data?.message || err.message || 'Failed to update group'
       return null
     }
   }
@@ -76,7 +76,7 @@ export const useGroupStore = defineStore('groups', () => {
       groups.value = groups.value.filter(g => g.id !== id)
       return true
     } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to delete group'
+      error.value = err.response?.data?.message || err.message || 'Failed to delete group'
       return false
     }
   }
@@ -89,7 +89,7 @@ export const useGroupStore = defineStore('groups', () => {
       groupRuns.value.push(run)
       return run
     } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to execute group'
+      error.value = err.response?.data?.message || err.message || 'Failed to execute group'
       return null
     } finally {
       executingGroupId.value = null
@@ -107,7 +107,7 @@ export const useGroupStore = defineStore('groups', () => {
         ...runs,
       ]
     } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to fetch group runs'
+      error.value = err.response?.data?.message || err.message || 'Failed to fetch group runs'
     } finally {
       fetchingRuns.value = false
     }
@@ -117,7 +117,7 @@ export const useGroupStore = defineStore('groups', () => {
     try {
       return await groupApi.getRun(runId)
     } catch (err: any) {
-      error.value = err.response?.data?.error || err.message || 'Failed to fetch group run'
+      error.value = err.response?.data?.message || err.message || 'Failed to fetch group run'
       return null
     }
   }

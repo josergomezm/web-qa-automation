@@ -56,7 +56,7 @@ async function executeGroupAsync(
       },
       screenshots: [],
       cost: 0,
-      executedAt: new Date().toISOString(),
+      executedAt: new Date(),
       consoleMessages: [],
       networkCalls: [],
       groupRunId,
@@ -64,32 +64,26 @@ async function executeGroupAsync(
 
     await db.saveResult(initialResult as any);
 
-    // Track resultId in GroupRun — re-read to prevent race conditions
-    const runAfterSave = await db.getGroupRun(groupRunId);
-    if (runAfterSave) {
-      runAfterSave.resultIds.push(resultId);
-      runAfterSave.summary.running = (runAfterSave.summary.running || 0) + 1;
-      await db.saveGroupRun(runAfterSave);
-    }
+    // Track resultId in GroupRun — atomic update to prevent race conditions
+    await db.updateGroupRun(groupRunId, (run) => {
+      run.resultIds.push(resultId);
+    });
 
     // Execute
     await executeTestAsync(test, aiConfig, resultId, groupRunId);
 
-    // Re-read result to determine outcome
+    // Determine outcome and update summary atomically
     const completedResult = await db.getResult(resultId);
     const passed = completedResult?.status === 'passed';
 
-    // Update GroupRun summary — re-read to prevent race conditions
-    const runAfterExec = await db.getGroupRun(groupRunId);
-    if (runAfterExec) {
-      runAfterExec.summary.running = Math.max(0, (runAfterExec.summary.running || 1) - 1);
+    await db.updateGroupRun(groupRunId, (run) => {
+      run.summary.running = Math.max(0, run.summary.running - 1);
       if (passed) {
-        runAfterExec.summary.passed = (runAfterExec.summary.passed || 0) + 1;
+        run.summary.passed++;
       } else {
-        runAfterExec.summary.failed = (runAfterExec.summary.failed || 0) + 1;
+        run.summary.failed++;
       }
-      await db.saveGroupRun(runAfterExec);
-    }
+    });
   });
 
   await executeWithConcurrencyLimit(tasks, maxParallel);
@@ -267,7 +261,7 @@ router.post('/:id/execute', async (req, res) => {
         total: group.testIds.length,
         passed: 0,
         failed: 0,
-        running: 0,
+        running: group.testIds.length,
       },
     };
 
