@@ -1,10 +1,8 @@
 import { AIService } from './ai';
 import { AutomationService } from './automation';
-import { DatabaseService } from './database';
+import { db } from './database';
 import { logger } from '../utils/logger';
 import type { TestRequest, TestResult } from '@shared/types';
-
-const db = new DatabaseService();
 
 export async function executeTestAsync(
   test: TestRequest,

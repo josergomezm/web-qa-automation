@@ -4,7 +4,7 @@ import { testRoutes } from './routes/tests';
 import { resultRoutes } from './routes/results';
 import { recordingRoutes } from './routes/recording';
 import { groupRouter, groupRunRouter } from './routes/groups';
-import { DatabaseService } from './services/database';
+import { db } from './services/database';
 
 const app = express();
 
@@ -25,7 +25,6 @@ app.get('/health', (req, res) => {
 });
 
 // Startup cleanup: cancel any group runs that were left in 'running' state
-const db = new DatabaseService();
 db.cancelStaleGroupRuns().catch(err => {
   console.error('Failed to cancel stale group runs:', err);
 });

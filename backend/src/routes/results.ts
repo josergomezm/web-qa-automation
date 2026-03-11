@@ -1,9 +1,8 @@
 import { Router } from 'express';
-import { DatabaseService } from '../services/database';
+import { db } from '../services/database';
 import type { TestReport } from '@shared/types';
 
 export const resultRoutes = Router();
-const db = new DatabaseService();
 
 // Get active results (must come before /:id route)
 resultRoutes.get('/active/list', async (req, res) => {

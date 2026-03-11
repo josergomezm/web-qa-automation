@@ -1,11 +1,9 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { devices as playwrightDevices } from 'playwright';
-import { DatabaseService } from '../services/database';
+import { db } from '../services/database';
 import { executeTestAsync } from '../services/testExecution';
 import type { TestGroup, GroupRun, DeviceInfo } from '@shared/types';
-
-const db = new DatabaseService();
 
 // ─── Concurrency helper ────────────────────────────────────────────────────
 

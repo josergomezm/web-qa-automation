@@ -175,6 +175,7 @@ const resultStore = useResultStore()
 
 const groupRun = ref<GroupRun | null>(null)
 const testResults = ref<Map<string, TestResult>>(new Map())
+const fetchedResultIds = ref<Set<string>>(new Set())
 const loading = ref(true)
 const error = ref<string | null>(null)
 const pollInterval = ref<number | null>(null)
@@ -238,7 +239,7 @@ function getResult(resultId: string): TestResult | undefined {
 
 function resultStatusLabel(resultId: string): string {
   const r = getResult(resultId)
-  if (!r) return 'Loading...'
+  if (!r) return fetchedResultIds.value.has(resultId) ? 'Not Found' : 'Loading...'
   switch (r.status) {
     case 'passed': return 'Passed'
     case 'failed': return 'Failed'
@@ -294,9 +295,11 @@ async function loadTestResults() {
   const fetches = groupRun.value.resultIds.map(async (resultId) => {
     try {
       const r = await resultStore.fetchResult(resultId)
-      testResults.value.set(resultId, r)
+      if (r) testResults.value.set(resultId, r)
     } catch {
-      // Ignore individual fetch errors — leave existing entry or show loading
+      // Result may not exist (e.g., lost to a previous race condition)
+    } finally {
+      fetchedResultIds.value.add(resultId)
     }
   })
   await Promise.all(fetches)

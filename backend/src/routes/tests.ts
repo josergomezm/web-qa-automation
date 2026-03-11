@@ -1,12 +1,11 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { DatabaseService } from '../services/database';
+import { db } from '../services/database';
 import { logger } from '../utils/logger';
 import { executeTestAsync } from '../services/testExecution';
 import type { TestRequest, TestResult } from '@shared/types';
 
 export const testRoutes = Router();
-const db = new DatabaseService();
 
 // Create a new test
 testRoutes.post('/', async (req, res) => {

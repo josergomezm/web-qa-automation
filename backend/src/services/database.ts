@@ -329,3 +329,6 @@ export class DatabaseService {
     }
   }
 }
+
+// Singleton instance — all modules MUST use this to prevent write race conditions
+export const db = new DatabaseService();
