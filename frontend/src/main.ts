@@ -12,6 +12,7 @@ import TestsList from './views/TestsList.vue'
 import Configuration from './views/Configuration.vue'
 import Dashboard from './views/Dashboard.vue'
 import GroupRunDetail from './views/GroupRunDetail.vue'
+import GroupsView from './views/GroupsView.vue'
 
 const routes = [
   { path: '/', component: Dashboard },
@@ -20,6 +21,8 @@ const routes = [
   { path: '/tests/:id/results', component: TestResults },
   { path: '/results/:id', component: TestResultDetail },
   { path: '/config', component: Configuration },
+  { path: '/groups', component: GroupsView },
+  { path: '/groups/:groupId/runs', component: GroupsView },
   { path: '/groups/:groupId/runs/:runId', component: GroupRunDetail }
 ]
 
