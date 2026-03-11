@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { v4 as uuidv4 } from 'uuid';
+import { devices as playwrightDevices } from 'playwright';
 import { DatabaseService } from '../services/database';
 import { executeTestAsync } from '../services/testExecution';
-import type { TestGroup, GroupRun } from '@shared/types';
+import type { TestGroup, GroupRun, DeviceInfo } from '@shared/types';
 
 const db = new DatabaseService();
 
@@ -104,6 +105,31 @@ async function executeGroupAsync(
 // ─── Main group router (/api/groups) ──────────────────────────────────────
 
 export const router = Router();
+
+const CURATED_DEVICES = [
+  'iPhone 15', 'iPhone 14', 'iPhone 13', 'iPhone SE',
+  'iPad Pro 11', 'iPad Mini',
+  'Pixel 7', 'Pixel 5',
+  'Galaxy S9+', 'Galaxy Tab S4',
+  'Desktop Chrome', 'Desktop Safari', 'Desktop Firefox',
+];
+
+// GET /devices — List available devices for emulation
+router.get('/devices', (_req, res) => {
+  const devices: DeviceInfo[] = CURATED_DEVICES
+    .map((name) => {
+      const descriptor = playwrightDevices[name];
+      if (!descriptor) return null;
+      return {
+        name,
+        viewport: descriptor.viewport,
+        isMobile: descriptor.isMobile ?? false,
+      } as DeviceInfo;
+    })
+    .filter((d): d is DeviceInfo => d !== null);
+
+  res.json(devices);
+});
 
 // POST / — Create group
 router.post('/', async (req, res) => {
