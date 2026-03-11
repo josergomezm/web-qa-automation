@@ -44,7 +44,7 @@ export class AutomationService {
 
     const deviceDescriptor = deviceName ? playwrightDevices[deviceName] : undefined;
     if (deviceName && !deviceDescriptor) {
-      logger.warn(`Unknown device "${deviceName}", proceeding without emulation`);
+      logger.warning(`Unknown device "${deviceName}", proceeding without emulation`);
     }
 
     const context = await this.browser.newContext({
