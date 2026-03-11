@@ -264,8 +264,8 @@ function resultBadgeClass(resultId: string): string {
 function testNameForResult(resultId: string): string {
   const r = getResult(resultId)
   if (!r) return resultId
-  const test = testStore.findTest(r.testId)
-  return test?.description ?? r.testId
+  const test = testStore.findTest(r.testRequestId)
+  return test?.name || test?.description || r.testRequestId
 }
 
 // Date formatting
