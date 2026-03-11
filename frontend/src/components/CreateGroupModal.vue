@@ -93,6 +93,35 @@
               </div>
             </div>
 
+            <!-- Device Picker -->
+            <div>
+              <label class="block text-sm font-medium text-heading mb-2">
+                Devices <span class="text-secondary text-xs">(optional — {{ selectedDevices.length }} selected)</span>
+              </label>
+              <div class="border border-border rounded-card max-h-40 overflow-y-auto">
+                <div v-if="groupStore.devices.length === 0" class="px-3 py-4 text-sm text-secondary text-center">
+                  Loading devices...
+                </div>
+                <label
+                  v-for="device in groupStore.devices"
+                  :key="device.name"
+                  class="flex items-center space-x-2 px-3 py-2 hover:bg-cream cursor-pointer border-b border-border last:border-0"
+                >
+                  <input
+                    type="checkbox"
+                    :value="device.name"
+                    v-model="selectedDevices"
+                    class="rounded border-border text-primary focus:ring-primary/20"
+                  />
+                  <span class="text-sm text-heading flex-1">{{ device.name }}</span>
+                  <span class="text-xs text-secondary">
+                    {{ device.viewport.width }}&times;{{ device.viewport.height }}
+                    {{ device.isMobile ? '· Mobile' : '' }}
+                  </span>
+                </label>
+              </div>
+            </div>
+
             <!-- Tags -->
             <div>
               <label class="block text-sm font-medium text-heading mb-1">
@@ -192,6 +221,7 @@ const form = ref({
 })
 
 const selectedTestIds = ref<string[]>([])
+const selectedDevices = ref<string[]>([])
 const testSearch = ref('')
 const tagInput = ref('')
 const selectedTagFilter = ref<string | null>(null)
@@ -238,6 +268,7 @@ function removeTag(tag: string) {
 function resetForm() {
   form.value = { name: '', description: '', tags: [], maxParallel: 3 }
   selectedTestIds.value = []
+  selectedDevices.value = []
   testSearch.value = ''
   tagInput.value = ''
   selectedTagFilter.value = null
@@ -251,6 +282,7 @@ async function handleSubmit() {
     testIds: selectedTestIds.value,
     tags: form.value.tags,
     maxParallel: form.value.maxParallel,
+    devices: selectedDevices.value,
   })
   if (result) {
     emit('created')
@@ -262,6 +294,7 @@ async function handleSubmit() {
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     testStore.fetchTests()
+    groupStore.fetchDevices()
   } else {
     resetForm()
   }
